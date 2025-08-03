@@ -14,7 +14,7 @@ interface BudgetState {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export const useBudgetStore = create<BudgetState>((set, get) => ({
+export const useBudgetStore = create<BudgetState>((set) => ({
   budgets: [],
   loading: false,
   error: null,

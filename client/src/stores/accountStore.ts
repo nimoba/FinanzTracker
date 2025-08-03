@@ -13,7 +13,7 @@ interface AccountState {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export const useAccountStore = create<AccountState>((set, get) => ({
+export const useAccountStore = create<AccountState>((set) => ({
   accounts: [],
   loading: false,
   error: null,
