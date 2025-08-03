@@ -4,6 +4,12 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
+import accountRoutes from './routes/accounts';
+import transactionRoutes from './routes/transactions';
+import categoryRoutes from './routes/categories';
+import budgetRoutes from './routes/budgets';
+import goalRoutes from './routes/goals';
+import analyticsRoutes from './routes/analytics';
 
 dotenv.config();
 
@@ -22,6 +28,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/budgets', budgetRoutes);
+app.use('/api/goals', goalRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'FinanceFlow API is running' });
