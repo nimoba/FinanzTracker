@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, Filter, X } from 'lucide-react';
-import { TransactionFilters as FilterType } from '../../../shared/types';
+import type { TransactionFilters as FilterType } from '../../../shared/types';
 import { useAccountStore } from '../stores/accountStore';
 import { useCategoryStore } from '../stores/categoryStore';
 

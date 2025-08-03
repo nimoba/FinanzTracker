@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Goal, CreateGoalRequest, UpdateGoalRequest } from '../../../shared/types';
+import type { Goal, CreateGoalRequest, UpdateGoalRequest } from '../../../shared/types';
 
 interface GoalState {
   goals: Goal[];

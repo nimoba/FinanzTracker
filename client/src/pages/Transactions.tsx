@@ -14,7 +14,7 @@ import { useAccountStore } from '../stores/accountStore';
 import { useCategoryStore } from '../stores/categoryStore';
 import { TransactionForm } from '../components/TransactionForm';
 import { TransactionFilters } from '../components/TransactionFilters';
-import { Transaction, CreateTransactionRequest } from '../../../shared/types';
+import type { Transaction, CreateTransactionRequest } from '../../../shared/types';
 import { format } from 'date-fns';
 
 export const Transactions: React.FC = () => {

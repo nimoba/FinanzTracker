@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Account, CreateAccountRequest, UpdateAccountRequest } from '../../../shared/types';
+import type { Account, CreateAccountRequest, UpdateAccountRequest } from '../../../shared/types';
 
 interface AccountState {
   accounts: Account[];

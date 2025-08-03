@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Category, CreateCategoryRequest, UpdateCategoryRequest } from '../../../shared/types';
+import type { Category, CreateCategoryRequest, UpdateCategoryRequest } from '../../../shared/types';
 
 interface CategoryState {
   categories: Category[];

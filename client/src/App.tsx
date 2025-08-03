@@ -1,4 +1,3 @@
-import React from 'react';
 import { AuthWrapper } from './components/AuthWrapper';
 import { Dashboard } from './pages/Dashboard';
 

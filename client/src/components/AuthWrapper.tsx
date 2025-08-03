@@ -14,7 +14,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   }, [checkAuth]);
 
   if (!isAuthenticated) {
-    return <PasswordForm onLogin={login} loading={loading} error={error} />;
+    return <PasswordForm onLogin={login} loading={loading} error={error || undefined} />;
   }
 
   return <>{children}</>;

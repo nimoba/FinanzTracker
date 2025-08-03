@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Calendar, DollarSign } from 'lucide-react';
-import { CreateTransactionRequest, Transaction, Account, Category } from '../../../shared/types';
+import type { CreateTransactionRequest, Transaction } from '../../../shared/types';
 import { useAccountStore } from '../stores/accountStore';
 import { useCategoryStore } from '../stores/categoryStore';
 
@@ -19,7 +19,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   loading = false
 }) => {
   const { accounts, fetchAccounts } = useAccountStore();
-  const { categories, fetchCategories, getIncomeCategories, getExpenseCategories } = useCategoryStore();
+  const { fetchCategories, getIncomeCategories, getExpenseCategories } = useCategoryStore();
   const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('expense');
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateTransactionRequest>({

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { X, DollarSign, Palette } from 'lucide-react';
-import { CreateAccountRequest, Account } from '../../../shared/types';
+import { X, DollarSign } from 'lucide-react';
+import type { CreateAccountRequest, Account } from '../../../shared/types';
 
 interface AccountFormProps {
   account?: Account;

@@ -8,7 +8,7 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react';
-import { Account } from '../../../shared/types';
+import type { Account } from '../../../shared/types';
 
 interface AccountCardProps {
   account: Account;

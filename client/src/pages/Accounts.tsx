@@ -3,7 +3,7 @@ import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { useAccountStore } from '../stores/accountStore';
 import { AccountCard } from '../components/AccountCard';
 import { AccountForm } from '../components/AccountForm';
-import { Account, CreateAccountRequest } from '../../../shared/types';
+import type { Account, CreateAccountRequest } from '../../../shared/types';
 
 export const Accounts: React.FC = () => {
   const {

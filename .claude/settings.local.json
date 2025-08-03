@@ -13,7 +13,10 @@
       "Bash(true)",
       "Bash(git config:*)",
       "Bash(git add:*)",
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": []
   }

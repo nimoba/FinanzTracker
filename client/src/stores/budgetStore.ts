@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Budget, CreateBudgetRequest, UpdateBudgetRequest } from '../../../shared/types';
+import type { Budget, CreateBudgetRequest, UpdateBudgetRequest } from '../../../shared/types';
 
 interface BudgetState {
   budgets: Budget[];
