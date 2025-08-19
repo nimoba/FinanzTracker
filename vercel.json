@@ -1,7 +1,8 @@
 {
-  "buildCommand": "npm run install:all && npm run build:client",
-  "outputDirectory": "client/dist",
   "framework": "vite",
+  "buildCommand": "cd client && npm install && npx tsc -b && npx vite build",
+  "outputDirectory": "client/dist",
+  "installCommand": "npm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/" }
