@@ -5,6 +5,7 @@ export interface AuthRequest {
 export interface AuthResponse {
   success: boolean;
   error?: string;
+  token?: string;
 }
 
 export interface Account {

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Account, CreateAccountRequest, UpdateAccountRequest } from '../../../shared/types';
+import { API_URL } from '../config/api';
+import { authenticatedFetch } from '../utils/api';
 
 interface AccountState {
   accounts: Account[];
@@ -11,8 +13,6 @@ interface AccountState {
   deleteAccount: (id: number) => Promise<void>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export const useAccountStore = create<AccountState>((set) => ({
   accounts: [],
   loading: false,
@@ -21,7 +21,7 @@ export const useAccountStore = create<AccountState>((set) => ({
   fetchAccounts: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/accounts`);
+      const response = await authenticatedFetch(`${API_URL}/accounts`);
       if (!response.ok) throw new Error('Failed to fetch accounts');
       const accounts = await response.json();
       set({ accounts, loading: false });
@@ -33,9 +33,8 @@ export const useAccountStore = create<AccountState>((set) => ({
   createAccount: async (accountData: CreateAccountRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/accounts`, {
+      const response = await authenticatedFetch(`${API_URL}/accounts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(accountData),
       });
       if (!response.ok) throw new Error('Failed to create account');
@@ -52,9 +51,8 @@ export const useAccountStore = create<AccountState>((set) => ({
   updateAccount: async (accountData: UpdateAccountRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/accounts/${accountData.id}`, {
+      const response = await authenticatedFetch(`${API_URL}/accounts/${accountData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(accountData),
       });
       if (!response.ok) throw new Error('Failed to update account');
@@ -71,7 +69,7 @@ export const useAccountStore = create<AccountState>((set) => ({
   deleteAccount: async (id: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/accounts/${id}`, {
+      const response = await authenticatedFetch(`${API_URL}/accounts/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete account');

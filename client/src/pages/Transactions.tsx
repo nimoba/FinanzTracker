@@ -87,7 +87,7 @@ export const Transactions: React.FC = () => {
       case 'transfer':
         return <ArrowRightLeft className="w-4 h-4 text-blue-600" />;
       default:
-        return <TrendingDown className="w-4 h-4 text-gray-600" />;
+        return <TrendingDown className="w-4 h-4 text-dark-600" />;
     }
   };
 
@@ -100,7 +100,7 @@ export const Transactions: React.FC = () => {
       case 'transfer':
         return 'text-blue-600';
       default:
-        return 'text-gray-600';
+        return 'text-dark-600';
     }
   };
 
@@ -119,12 +119,11 @@ export const Transactions: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
-            <p className="text-gray-600 mt-1">Track your income, expenses, and transfers</p>
+            <h1 className="text-3xl font-bold text-dark-900">Transactions</h1>
+            <p className="text-dark-600 mt-1">Track your income, expenses, and transfers</p>
           </div>
           <button
             onClick={handleAddTransaction}
@@ -147,58 +146,58 @@ export const Transactions: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-dark-secondary rounded-lg shadow overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : transactions.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No transactions found</p>
-              <p className="text-gray-400 mt-2">Add your first transaction to get started!</p>
+              <p className="text-dark-500 text-lg">No transactions found</p>
+              <p className="text-dark-400 mt-2">Add your first transaction to get started!</p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-dark-accent">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                         Description
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                         Category
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                         Account
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                         Amount
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-dark-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-dark-secondary divide-y divide-gray-200">
                     {transactions.map((transaction) => (
-                      <tr key={transaction.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <tr key={transaction.id} className="hover:bg-dark-accent">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-900">
                           {format(new Date(transaction.date), 'MMM dd, yyyy')}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-dark-900">
                           <div className="flex items-center">
                             {getTransactionIcon(transaction.type)}
                             <span className="ml-2">{transaction.description}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-500">
                           {transaction.category?.name || 'Uncategorized'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-500">
                           {transaction.account?.name}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${getAmountColor(transaction.type)}`}>
@@ -232,26 +231,26 @@ export const Transactions: React.FC = () => {
               </div>
 
               {totalPages > 1 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div className="bg-dark-secondary px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                   <div className="flex-1 flex justify-between sm:hidden">
                     <button
                       onClick={() => handlePageChange(page - 1)}
                       disabled={page <= 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-dark-700 bg-dark-secondary hover:bg-dark-accent disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
                     <button
                       onClick={() => handlePageChange(page + 1)}
                       disabled={page >= totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-dark-700 bg-dark-secondary hover:bg-dark-accent disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next
                     </button>
                   </div>
                   <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-dark-700">
                         Showing{' '}
                         <span className="font-medium">{((page - 1) * (filters.limit || 20)) + 1}</span>
                         {' '}to{' '}
@@ -268,17 +267,17 @@ export const Transactions: React.FC = () => {
                         <button
                           onClick={() => handlePageChange(page - 1)}
                           disabled={page <= 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-dark-secondary text-sm font-medium text-dark-500 hover:bg-dark-accent disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <ChevronLeft className="h-5 w-5" />
                         </button>
-                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-dark-secondary text-sm font-medium text-dark-700">
                           Page {page} of {totalPages}
                         </span>
                         <button
                           onClick={() => handlePageChange(page + 1)}
                           disabled={page >= totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-dark-secondary text-sm font-medium text-dark-500 hover:bg-dark-accent disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <ChevronRight className="h-5 w-5" />
                         </button>
@@ -302,7 +301,6 @@ export const Transactions: React.FC = () => {
             loading={loading}
           />
         )}
-      </div>
     </div>
   );
 };

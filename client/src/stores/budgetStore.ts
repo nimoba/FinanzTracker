@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Budget, CreateBudgetRequest, UpdateBudgetRequest } from '../../../shared/types';
+import { API_URL } from '../config/api';
+import { authenticatedFetch } from '../utils/api';
 
 interface BudgetState {
   budgets: Budget[];
@@ -12,8 +14,6 @@ interface BudgetState {
   getBudgetProgress: (budgetId: number) => Promise<{ spent: number; remaining: number; percentage: number }>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export const useBudgetStore = create<BudgetState>((set) => ({
   budgets: [],
   loading: false,
@@ -22,7 +22,7 @@ export const useBudgetStore = create<BudgetState>((set) => ({
   fetchBudgets: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/budgets`);
+      const response = await authenticatedFetch(`${API_URL}/budgets`);
       if (!response.ok) throw new Error('Failed to fetch budgets');
       const budgets = await response.json();
       set({ budgets, loading: false });
@@ -34,9 +34,8 @@ export const useBudgetStore = create<BudgetState>((set) => ({
   createBudget: async (budgetData: CreateBudgetRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/budgets`, {
+      const response = await authenticatedFetch(`${API_URL}/budgets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(budgetData),
       });
       if (!response.ok) throw new Error('Failed to create budget');
@@ -53,9 +52,8 @@ export const useBudgetStore = create<BudgetState>((set) => ({
   updateBudget: async (budgetData: UpdateBudgetRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/budgets/${budgetData.id}`, {
+      const response = await authenticatedFetch(`${API_URL}/budgets/${budgetData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(budgetData),
       });
       if (!response.ok) throw new Error('Failed to update budget');
@@ -72,7 +70,7 @@ export const useBudgetStore = create<BudgetState>((set) => ({
   deleteBudget: async (id: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/budgets/${id}`, {
+      const response = await authenticatedFetch(`${API_URL}/budgets/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete budget');
@@ -87,7 +85,7 @@ export const useBudgetStore = create<BudgetState>((set) => ({
 
   getBudgetProgress: async (budgetId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/budgets/${budgetId}/progress`);
+      const response = await authenticatedFetch(`${API_URL}/budgets/${budgetId}/progress`);
       if (!response.ok) throw new Error('Failed to fetch budget progress');
       return await response.json();
     } catch (error) {

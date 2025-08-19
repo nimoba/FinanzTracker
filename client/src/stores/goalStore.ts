@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Goal, CreateGoalRequest, UpdateGoalRequest } from '../../../shared/types';
+import { API_URL } from '../config/api';
+import { authenticatedFetch } from '../utils/api';
 
 interface GoalState {
   goals: Goal[];
@@ -12,8 +14,6 @@ interface GoalState {
   updateProgress: (id: number, amount: number) => Promise<void>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export const useGoalStore = create<GoalState>((set) => ({
   goals: [],
   loading: false,
@@ -22,7 +22,7 @@ export const useGoalStore = create<GoalState>((set) => ({
   fetchGoals: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/goals`);
+      const response = await authenticatedFetch(`${API_URL}/goals`);
       if (!response.ok) throw new Error('Failed to fetch goals');
       const goals = await response.json();
       set({ goals, loading: false });
@@ -34,9 +34,8 @@ export const useGoalStore = create<GoalState>((set) => ({
   createGoal: async (goalData: CreateGoalRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/goals`, {
+      const response = await authenticatedFetch(`${API_URL}/goals`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(goalData),
       });
       if (!response.ok) throw new Error('Failed to create goal');
@@ -53,9 +52,8 @@ export const useGoalStore = create<GoalState>((set) => ({
   updateGoal: async (goalData: UpdateGoalRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/goals/${goalData.id}`, {
+      const response = await authenticatedFetch(`${API_URL}/goals/${goalData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(goalData),
       });
       if (!response.ok) throw new Error('Failed to update goal');
@@ -72,7 +70,7 @@ export const useGoalStore = create<GoalState>((set) => ({
   deleteGoal: async (id: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/goals/${id}`, {
+      const response = await authenticatedFetch(`${API_URL}/goals/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete goal');
@@ -88,9 +86,8 @@ export const useGoalStore = create<GoalState>((set) => ({
   updateProgress: async (id: number, amount: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/goals/${id}/progress`, {
+      const response = await authenticatedFetch(`${API_URL}/goals/${id}/progress`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount }),
       });
       if (!response.ok) throw new Error('Failed to update goal progress');

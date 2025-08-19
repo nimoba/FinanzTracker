@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Category, CreateCategoryRequest, UpdateCategoryRequest } from '../../../shared/types';
+import { API_URL } from '../config/api';
+import { authenticatedFetch } from '../utils/api';
 
 interface CategoryState {
   categories: Category[];
@@ -13,8 +15,6 @@ interface CategoryState {
   getExpenseCategories: () => Category[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export const useCategoryStore = create<CategoryState>((set, get) => ({
   categories: [],
   loading: false,
@@ -23,7 +23,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   fetchCategories: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories`);
+      const response = await authenticatedFetch(`${API_URL}/categories`);
       if (!response.ok) throw new Error('Failed to fetch categories');
       const categories = await response.json();
       set({ categories, loading: false });
@@ -35,9 +35,8 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   createCategory: async (categoryData: CreateCategoryRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories`, {
+      const response = await authenticatedFetch(`${API_URL}/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryData),
       });
       if (!response.ok) throw new Error('Failed to create category');
@@ -54,9 +53,8 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   updateCategory: async (categoryData: UpdateCategoryRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories/${categoryData.id}`, {
+      const response = await authenticatedFetch(`${API_URL}/categories/${categoryData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryData),
       });
       if (!response.ok) throw new Error('Failed to update category');
@@ -73,7 +71,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   deleteCategory: async (id: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories/${id}`, {
+      const response = await authenticatedFetch(`${API_URL}/categories/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete category');

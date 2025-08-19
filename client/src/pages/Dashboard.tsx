@@ -1,52 +1,55 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
   TrendingDown, 
   Wallet,
   Plus,
-  Settings,
-  LogOut 
+  Loader2 
 } from 'lucide-react';
-import { useAuthStore } from '../stores/authStore';
+import { useAnalyticsStore } from '../stores/analyticsStore';
+import { useTransactionStore } from '../stores/transactionStore';
+import { useAccountStore } from '../stores/accountStore';
 
 export const Dashboard: React.FC = () => {
-  const { logout } = useAuthStore();
+  const { 
+    overview, 
+    loading: analyticsLoading, 
+    error: analyticsError, 
+    fetchOverview 
+  } = useAnalyticsStore();
+  const { 
+    transactions, 
+    fetchTransactions, 
+    loading: transactionsLoading 
+  } = useTransactionStore();
+  const { fetchAccounts } = useAccountStore();
 
-  const handleLogout = () => {
-    logout();
+  useEffect(() => {
+    fetchOverview();
+    fetchTransactions({ limit: 5 }); // Fetch recent transactions
+    fetchAccounts();
+  }, [fetchOverview, fetchTransactions, fetchAccounts]);
+
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   };
 
-  return (
-    <div className="min-h-screen bg-dark-800">
-      {/* Header */}
-      <header className="bg-dark-secondary shadow-sm border-b border-dark-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-dark-primary">FinanceFlow</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button className="p-2 text-dark-muted hover:text-dark-secondary transition-colors">
-                <Settings className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="p-2 text-dark-muted hover:text-dark-secondary transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const isLoading = analyticsLoading || transactionsLoading;
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+  return (
+    <div className="max-w-7xl mx-auto">
         {/* Quick Stats */}
+        {analyticsError && (
+          <div className="mb-6 bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+            <p className="text-red-400 text-sm">{analyticsError}</p>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-dark-secondary rounded-lg shadow-lg p-6">
             <div className="flex items-center">
@@ -57,7 +60,13 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-dark-muted">Total Income</p>
-                <p className="text-2xl font-semibold text-dark-primary">$5,240</p>
+                <p className="text-2xl font-semibold text-dark-primary">
+                  {isLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    formatCurrency(overview?.total_income || 0)
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -71,7 +80,13 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-dark-muted">Total Expenses</p>
-                <p className="text-2xl font-semibold text-dark-primary">$3,180</p>
+                <p className="text-2xl font-semibold text-dark-primary">
+                  {isLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    formatCurrency(overview?.total_expenses || 0)
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -85,7 +100,13 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-dark-muted">Net Income</p>
-                <p className="text-2xl font-semibold text-dark-primary">$2,060</p>
+                <p className="text-2xl font-semibold text-dark-primary">
+                  {isLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    formatCurrency(overview?.net_income || 0)
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -99,7 +120,15 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-dark-muted">Total Balance</p>
-                <p className="text-2xl font-semibold text-dark-primary">$12,420</p>
+                <p className="text-2xl font-semibold text-dark-primary">
+                  {isLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    formatCurrency(
+                      overview?.account_balances?.reduce((total, account) => total + account.balance, 0) || 0
+                    )
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -110,11 +139,23 @@ export const Dashboard: React.FC = () => {
           <div className="bg-dark-secondary rounded-lg shadow-lg p-6">
             <h2 className="text-lg font-semibold text-dark-primary mb-4">Quick Actions</h2>
             <div className="flex space-x-4">
-              <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => {
+                  // TODO: Implement transaction modal or navigate to transactions page
+                  alert('Transaction form coming soon!');
+                }}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Transaction
               </button>
-              <button className="flex items-center px-4 py-2 bg-dark-accent text-dark-primary rounded-lg hover:bg-dark-600 transition-colors">
+              <button 
+                onClick={() => {
+                  // TODO: Implement account modal or navigate to accounts page
+                  alert('Account form coming soon!');
+                }}
+                className="flex items-center px-4 py-2 bg-dark-accent text-dark-primary rounded-lg hover:bg-dark-600 transition-colors"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Account
               </button>
@@ -128,12 +169,43 @@ export const Dashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-dark-primary">Recent Transactions</h2>
           </div>
           <div className="p-6">
-            <div className="text-center text-dark-muted py-8">
-              <p>No transactions yet. Add your first transaction to get started!</p>
-            </div>
+            {transactionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-dark-muted" />
+                <span className="ml-2 text-dark-muted">Loading transactions...</span>
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center text-dark-muted py-8">
+                <p>No transactions yet. Add your first transaction to get started!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-4 bg-dark-accent rounded-lg">
+                    <div className="flex items-center">
+                      <div className={`w-3 h-3 rounded-full mr-3 ${
+                        transaction.type === 'income' ? 'bg-green-500' : 
+                        transaction.type === 'expense' ? 'bg-red-500' : 'bg-blue-500'
+                      }`} />
+                      <div>
+                        <p className="text-dark-primary font-medium">{transaction.description}</p>
+                        <p className="text-sm text-dark-muted">
+                          {transaction.category?.name || 'No category'} • {new Date(transaction.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`text-lg font-semibold ${
+                      transaction.type === 'income' ? 'text-green-400' : 
+                      transaction.type === 'expense' ? 'text-red-400' : 'text-blue-400'
+                    }`}>
+                      {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </main>
     </div>
   );
 };

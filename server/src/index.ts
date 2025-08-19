@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import accountRoutes from './routes/accounts';
@@ -10,6 +11,7 @@ import categoryRoutes from './routes/categories';
 import budgetRoutes from './routes/budgets';
 import goalRoutes from './routes/goals';
 import analyticsRoutes from './routes/analytics';
+import { authenticateToken } from './middleware/auth';
 
 dotenv.config();
 
@@ -24,16 +26,17 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan('combined'));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api/accounts', accountRoutes);
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/budgets', budgetRoutes);
-app.use('/api/goals', goalRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/accounts', authenticateToken, accountRoutes);
+app.use('/api/transactions', authenticateToken, transactionRoutes);
+app.use('/api/categories', authenticateToken, categoryRoutes);
+app.use('/api/budgets', authenticateToken, budgetRoutes);
+app.use('/api/goals', authenticateToken, goalRoutes);
+app.use('/api/analytics', authenticateToken, analyticsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'FinanceFlow API is running' });

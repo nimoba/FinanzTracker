@@ -6,6 +6,8 @@ import type {
   TransactionFilters,
   PaginatedResponse 
 } from '../../../shared/types';
+import { API_URL } from '../config/api';
+import { authenticatedFetch } from '../utils/api';
 
 interface TransactionState {
   transactions: Transaction[];
@@ -23,8 +25,6 @@ interface TransactionState {
   setFilters: (filters: Partial<TransactionFilters>) => void;
   clearFilters: () => void;
 }
-
-const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:5000';
 
 const defaultFilters: TransactionFilters = {
   page: 1,
@@ -53,7 +53,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         }
       });
 
-      const response = await fetch(`${API_BASE_URL}/api/transactions?${queryParams}`);
+      const response = await authenticatedFetch(`${API_URL}/transactions?${queryParams}`);
       if (!response.ok) throw new Error('Failed to fetch transactions');
       
       const data: PaginatedResponse<Transaction> = await response.json();
@@ -73,9 +73,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   createTransaction: async (transactionData: CreateTransactionRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transactions`, {
+      const response = await authenticatedFetch(`${API_URL}/transactions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transactionData),
       });
       if (!response.ok) throw new Error('Failed to create transaction');
@@ -90,9 +89,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   updateTransaction: async (transactionData: UpdateTransactionRequest) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transactions/${transactionData.id}`, {
+      const response = await authenticatedFetch(`${API_URL}/transactions/${transactionData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transactionData),
       });
       if (!response.ok) throw new Error('Failed to update transaction');
@@ -107,7 +105,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   deleteTransaction: async (id: number) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transactions/${id}`, {
+      const response = await authenticatedFetch(`${API_URL}/transactions/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete transaction');
