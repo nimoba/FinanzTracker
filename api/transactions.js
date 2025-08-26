@@ -1,67 +1,57 @@
-const { Pool } = require('pg');
+import { Pool } from 'pg';
+import bcrypt from 'bcryptjs';
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.POSTGRES_URL,
   ssl: {
     rejectUnauthorized: false
   }
 });
 
-// Initialize database
-async function initDB() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS transactions (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL,
-        description VARCHAR(255) NOT NULL,
-        category VARCHAR(100) NOT NULL,
-        amount DECIMAL(10, 2) NOT NULL,
-        type VARCHAR(10) CHECK (type IN ('income', 'expense')),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  } catch (error) {
-    console.error('Database initialization error:', error);
+// Password check middleware
+const PASSWORD_HASH = bcrypt.hashSync(process.env.PASSWORD || 'financeflow123', 10);
+
+function checkPassword(password) {
+  if (!password || !bcrypt.compareSync(password, PASSWORD_HASH)) {
+    return false;
   }
+  return true;
 }
 
-initDB();
-
-module.exports = async (req, res) => {
-  if (req.method === 'GET') {
-    try {
-      const result = await pool.query('SELECT * FROM transactions ORDER BY date DESC, created_at DESC');
-      res.json({ 
-        data: result.rows,
-        total: result.rows.length,
-        page: 1,
-        limit: 100,
-        totalPages: 1
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch transactions' });
-    }
-  } else if (req.method === 'POST') {
-    const { date, description, category, amount, type } = req.body;
-    try {
+export default async function handler(req, res) {
+  try {
+    if (req.method === 'GET') {
+      // Get all transactions
+      const result = await pool.query(
+        'SELECT * FROM transactions ORDER BY date DESC, created_at DESC'
+      );
+      res.status(200).json(result.rows);
+      
+    } else if (req.method === 'POST') {
+      const { date, description, category, amount, type, password } = req.body;
+      
+      // Check password for POST requests
+      if (!checkPassword(password)) {
+        return res.status(401).json({ error: 'Invalid password' });
+      }
+      
+      // Insert new transaction
       const result = await pool.query(
         'INSERT INTO transactions (date, description, category, amount, type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
         [date, description, category, amount, type]
       );
-      res.json(result.rows[0]);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to create transaction' });
+      
+      res.status(201).json(result.rows[0]);
+      
+    } else {
+      res.setHeader('Allow', ['GET', 'POST']);
+      res.status(405).end(`Method ${req.method} Not Allowed`);
     }
-  } else if (req.method === 'DELETE') {
-    const id = req.url.split('/').pop();
-    try {
-      await pool.query('DELETE FROM transactions WHERE id = $1', [id]);
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to delete transaction' });
-    }
-  } else {
-    res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ 
+      error: 'Database operation failed',
+      details: error.message 
+    });
   }
-};
+}
