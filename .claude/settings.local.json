@@ -1,29 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)",
-      "Bash(npm create:*)",
-      "Bash(npm install)",
-      "Bash(npm install:*)",
-      "Bash(npx tailwindcss init:*)",
-      "Bash(./node_modules/.bin/tailwindcss:*)",
-      "Bash(npm init:*)",
-      "Bash(rm:*)",
-      "Bash(git rm:*)",
-      "Bash(true)",
-      "Bash(git config:*)",
-      "Bash(git add:*)",
-      "Bash(docker-compose up:*)",
-      "Bash(npm start)",
-      "Bash(curl:*)",
-      "Bash(npm run dev:*)",
-      "Bash(grep:*)",
-      "Bash(find:*)",
-      "Bash(npm run build:*)",
-      "Bash(mv:*)",
-      "Bash(npm run install:all:*)",
-      "Bash(ls:*)"
+      "Bash(npx create-next-app:*)"
     ],
-    "deny": []
+    "deny": [],
+    "ask": []
   }
 }
