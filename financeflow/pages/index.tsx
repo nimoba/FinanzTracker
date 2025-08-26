@@ -23,7 +23,6 @@ interface Transaction {
   kategorie_icon: string;
 }
 
-//
 export default function Dashboard() {
   const router = useRouter();
   const [summary, setSummary] = useState<DashboardData | null>(null);
