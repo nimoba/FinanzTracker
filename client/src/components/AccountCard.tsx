@@ -8,12 +8,10 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react';
-import type { Account } from '../../../shared/types';
-
 interface AccountCardProps {
-  account: Account;
-  onEdit: (account: Account) => void;
-  onDelete: (id: number) => void;
+  account: any;
+  onEdit: (account: any) => void;
+  onDelete: (id: string) => void;
   deleting?: boolean;
 }
 

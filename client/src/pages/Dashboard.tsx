@@ -64,7 +64,7 @@ export const Dashboard: React.FC = () => {
                   {isLoading ? (
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
-                    formatCurrency(overview?.total_income || 0)
+                    formatCurrency(overview?.totalIncome || 0)
                   )}
                 </p>
               </div>
@@ -84,7 +84,7 @@ export const Dashboard: React.FC = () => {
                   {isLoading ? (
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
-                    formatCurrency(overview?.total_expenses || 0)
+                    formatCurrency(overview?.totalExpenses || 0)
                   )}
                 </p>
               </div>
@@ -104,7 +104,7 @@ export const Dashboard: React.FC = () => {
                   {isLoading ? (
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
-                    formatCurrency(overview?.net_income || 0)
+                    formatCurrency(overview?.netIncome || 0)
                   )}
                 </p>
               </div>
@@ -124,9 +124,7 @@ export const Dashboard: React.FC = () => {
                   {isLoading ? (
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : (
-                    formatCurrency(
-                      overview?.account_balances?.reduce((total, account) => total + account.balance, 0) || 0
-                    )
+                    formatCurrency(0)
                   )}
                 </p>
               </div>
@@ -190,7 +188,7 @@ export const Dashboard: React.FC = () => {
                       <div>
                         <p className="text-dark-primary font-medium">{transaction.description}</p>
                         <p className="text-sm text-dark-muted">
-                          {transaction.category?.name || 'No category'} • {new Date(transaction.date).toLocaleDateString()}
+                          {transaction.category || 'No category'} • {new Date(transaction.date).toLocaleDateString()}
                         </p>
                       </div>
                     </div>

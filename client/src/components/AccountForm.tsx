@@ -1,11 +1,9 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { X, DollarSign } from 'lucide-react';
-import type { CreateAccountRequest, Account } from '../../../shared/types';
-
 interface AccountFormProps {
-  account?: Account;
-  onSubmit: (data: CreateAccountRequest) => void;
+  account?: any;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
   loading?: boolean;
 }
@@ -48,7 +46,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
   onCancel,
   loading = false
 }) => {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateAccountRequest>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<any>({
     defaultValues: account ? {
       name: account.name,
       type: account.type,
@@ -66,7 +64,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
   const selectedColor = watch('color');
   const selectedIcon = watch('icon');
 
-  const handleFormSubmit = (data: CreateAccountRequest) => {
+  const handleFormSubmit = (data: any) => {
     onSubmit({
       ...data,
       balance: parseFloat(data.balance.toString())
@@ -100,7 +98,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
               placeholder="e.g., Chase Checking"
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.name?.message || '')}</p>
             )}
           </div>
 
@@ -119,7 +117,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
               ))}
             </select>
             {errors.type && (
-              <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.type?.message || '')}</p>
             )}
           </div>
 
@@ -141,7 +139,7 @@ export const AccountForm: React.FC<AccountFormProps> = ({
               />
             </div>
             {errors.balance && (
-              <p className="mt-1 text-sm text-red-600">{errors.balance.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.balance?.message || '')}</p>
             )}
           </div>
 

@@ -1,11 +1,19 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthWrapper } from './components/AuthWrapper';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Accounts } from './pages/Accounts';
 import { Transactions } from './pages/Transactions';
+import { useAuthStore } from './stores/authStore';
 
 function App() {
+  const checkAuth = useAuthStore(state => state.checkAuth);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   return (
     <Router>
       <AuthWrapper>

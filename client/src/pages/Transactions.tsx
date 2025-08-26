@@ -14,7 +14,7 @@ import { useAccountStore } from '../stores/accountStore';
 import { useCategoryStore } from '../stores/categoryStore';
 import { TransactionForm } from '../components/TransactionForm';
 import { TransactionFilters } from '../components/TransactionFilters';
-import type { Transaction, CreateTransactionRequest } from '../../../shared/types';
+// import type { Transaction, CreateTransactionRequest } from '../../../shared/types';
 import { format } from 'date-fns';
 
 export const Transactions: React.FC = () => {
@@ -37,8 +37,8 @@ export const Transactions: React.FC = () => {
   const { fetchCategories } = useCategoryStore();
 
   const [showForm, setShowForm] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<any | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTransactions();
@@ -51,25 +51,25 @@ export const Transactions: React.FC = () => {
     setShowForm(true);
   };
 
-  const handleEditTransaction = (transaction: Transaction) => {
+  const handleEditTransaction = (transaction: any) => {
     setEditingTransaction(transaction);
     setShowForm(true);
   };
 
-  const handleFormSubmit = async (data: CreateTransactionRequest) => {
+  const handleFormSubmit = async (data: any) => {
     if (editingTransaction) {
-      await updateTransaction({ ...data, id: editingTransaction.id });
+      updateTransaction({ ...data, id: editingTransaction.id });
     } else {
-      await createTransaction(data);
+      createTransaction({ ...data, category: data.category || 'Uncategorized' });
     }
     setShowForm(false);
     setEditingTransaction(null);
   };
 
-  const handleDeleteTransaction = async (id: number) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
       setDeletingId(id);
-      await deleteTransaction(id);
+      deleteTransaction(id);
       setDeletingId(null);
     }
   };
@@ -195,10 +195,10 @@ export const Transactions: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-500">
-                          {transaction.category?.name || 'Uncategorized'}
+                          {transaction.category || 'Uncategorized'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-500">
-                          {transaction.account?.name}
+                          {transaction.account || 'N/A'}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${getAmountColor(transaction.type)}`}>
                           {formatAmount(transaction.amount, transaction.type)}

@@ -1,17 +1,24 @@
 import { create } from 'zustand';
-import type { Budget, CreateBudgetRequest, UpdateBudgetRequest } from '../../../shared/types';
-import { API_URL } from '../config/api';
-import { authenticatedFetch } from '../utils/api';
+import { storage } from '../storage';
+
+interface Budget {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  period: 'monthly' | 'yearly';
+  spent: number;
+}
 
 interface BudgetState {
   budgets: Budget[];
   loading: boolean;
   error: string | null;
-  fetchBudgets: () => Promise<void>;
-  createBudget: (budget: CreateBudgetRequest) => Promise<void>;
-  updateBudget: (budget: UpdateBudgetRequest) => Promise<void>;
-  deleteBudget: (id: number) => Promise<void>;
-  getBudgetProgress: (budgetId: number) => Promise<{ spent: number; remaining: number; percentage: number }>;
+  fetchBudgets: () => void;
+  createBudget: (budget: Omit<Budget, 'id' | 'spent'>) => void;
+  updateBudget: (budget: Budget) => void;
+  deleteBudget: (id: string) => void;
+  getBudgetProgress: (budgetId: string) => { spent: number; remaining: number; percentage: number };
 }
 
 export const useBudgetStore = create<BudgetState>((set) => ({
@@ -19,78 +26,97 @@ export const useBudgetStore = create<BudgetState>((set) => ({
   loading: false,
   error: null,
 
-  fetchBudgets: async () => {
+  fetchBudgets: () => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/budgets`);
-      if (!response.ok) throw new Error('Failed to fetch budgets');
-      const budgets = await response.json();
-      set({ budgets, loading: false });
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to fetch budgets', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const budgets: Budget[] = storage.getItem('budgets') || [];
+        set({ budgets, loading: false });
+      } catch (error) {
+        set({ error: 'Failed to fetch budgets', loading: false });
+      }
+    }, 100);
   },
 
-  createBudget: async (budgetData: CreateBudgetRequest) => {
+  createBudget: (budgetData: Omit<Budget, 'id' | 'spent'>) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/budgets`, {
-        method: 'POST',
-        body: JSON.stringify(budgetData),
-      });
-      if (!response.ok) throw new Error('Failed to create budget');
-      const newBudget = await response.json();
-      set(state => ({ 
-        budgets: [...state.budgets, newBudget], 
-        loading: false 
-      }));
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to create budget', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const budgets: Budget[] = storage.getItem('budgets') || [];
+        const newBudget: Budget = {
+          ...budgetData,
+          id: storage.generateId(),
+          spent: 0
+        };
+        
+        budgets.push(newBudget);
+        storage.setItem('budgets', budgets);
+        
+        set(state => ({ 
+          budgets: [...state.budgets, newBudget], 
+          loading: false 
+        }));
+      } catch (error) {
+        set({ error: 'Failed to create budget', loading: false });
+      }
+    }, 100);
   },
 
-  updateBudget: async (budgetData: UpdateBudgetRequest) => {
+  updateBudget: (budgetData: Budget) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/budgets/${budgetData.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(budgetData),
-      });
-      if (!response.ok) throw new Error('Failed to update budget');
-      const updatedBudget = await response.json();
-      set(state => ({
-        budgets: state.budgets.map(budget => budget.id === budgetData.id ? updatedBudget : budget),
-        loading: false
-      }));
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to update budget', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const budgets: Budget[] = storage.getItem('budgets') || [];
+        const index = budgets.findIndex(budget => budget.id === budgetData.id);
+        
+        if (index !== -1) {
+          budgets[index] = budgetData;
+          storage.setItem('budgets', budgets);
+        }
+        
+        set(state => ({
+          budgets: state.budgets.map(budget => budget.id === budgetData.id ? budgetData : budget),
+          loading: false
+        }));
+      } catch (error) {
+        set({ error: 'Failed to update budget', loading: false });
+      }
+    }, 100);
   },
 
-  deleteBudget: async (id: number) => {
+  deleteBudget: (id: string) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/budgets/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete budget');
-      set(state => ({
-        budgets: state.budgets.filter(budget => budget.id !== id),
-        loading: false
-      }));
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to delete budget', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const budgets: Budget[] = storage.getItem('budgets') || [];
+        const filteredBudgets = budgets.filter(budget => budget.id !== id);
+        storage.setItem('budgets', filteredBudgets);
+        
+        set(state => ({
+          budgets: state.budgets.filter(budget => budget.id !== id),
+          loading: false
+        }));
+      } catch (error) {
+        set({ error: 'Failed to delete budget', loading: false });
+      }
+    }, 100);
   },
 
-  getBudgetProgress: async (budgetId: number) => {
-    try {
-      const response = await authenticatedFetch(`${API_URL}/budgets/${budgetId}/progress`);
-      if (!response.ok) throw new Error('Failed to fetch budget progress');
-      return await response.json();
-    } catch (error) {
-      console.error('Failed to fetch budget progress:', error);
+  getBudgetProgress: (budgetId: string) => {
+    const budgets: Budget[] = storage.getItem('budgets') || [];
+    const budget = budgets.find(b => b.id === budgetId);
+    
+    if (!budget) {
       return { spent: 0, remaining: 0, percentage: 0 };
     }
+    
+    const remaining = Math.max(0, budget.amount - budget.spent);
+    const percentage = budget.amount > 0 ? (budget.spent / budget.amount) * 100 : 0;
+    
+    return {
+      spent: budget.spent,
+      remaining,
+      percentage: Math.round(percentage)
+    };
   },
 }));

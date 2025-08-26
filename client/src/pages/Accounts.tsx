@@ -3,7 +3,7 @@ import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { useAccountStore } from '../stores/accountStore';
 import { AccountCard } from '../components/AccountCard';
 import { AccountForm } from '../components/AccountForm';
-import type { Account, CreateAccountRequest } from '../../../shared/types';
+// import type { Account, CreateAccountRequest } from '../../../shared/types';
 
 export const Accounts: React.FC = () => {
   const {
@@ -17,8 +17,8 @@ export const Accounts: React.FC = () => {
   } = useAccountStore();
 
   const [showForm, setShowForm] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingAccount, setEditingAccount] = useState<any | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -29,25 +29,25 @@ export const Accounts: React.FC = () => {
     setShowForm(true);
   };
 
-  const handleEditAccount = (account: Account) => {
+  const handleEditAccount = (account: any) => {
     setEditingAccount(account);
     setShowForm(true);
   };
 
-  const handleFormSubmit = async (data: CreateAccountRequest) => {
+  const handleFormSubmit = async (data: any) => {
     if (editingAccount) {
-      await updateAccount({ ...data, id: editingAccount.id });
+      updateAccount({ ...data, id: editingAccount.id });
     } else {
-      await createAccount(data);
+      createAccount(data);
     }
     setShowForm(false);
     setEditingAccount(null);
   };
 
-  const handleDeleteAccount = async (id: number) => {
+  const handleDeleteAccount = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this account? This will also delete all associated transactions.')) {
       setDeletingId(id);
-      await deleteAccount(id);
+      deleteAccount(id);
       setDeletingId(null);
     }
   };
@@ -75,7 +75,7 @@ export const Accounts: React.FC = () => {
     }
     acc[type].push(account);
     return acc;
-  }, {} as Record<string, Account[]>);
+  }, {} as Record<string, any[]>);
 
   const getTypeTitle = (type: string) => {
     switch (type) {

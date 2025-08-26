@@ -1,12 +1,11 @@
 import React from 'react';
 import { Search, Filter, X } from 'lucide-react';
-import type { TransactionFilters as FilterType } from '../../../shared/types';
 import { useAccountStore } from '../stores/accountStore';
 import { useCategoryStore } from '../stores/categoryStore';
 
 interface TransactionFiltersProps {
-  filters: FilterType;
-  onFiltersChange: (filters: Partial<FilterType>) => void;
+  filters: any;
+  onFiltersChange: (filters: any) => void;
   onClearFilters: () => void;
 }
 

@@ -1,16 +1,21 @@
 import { create } from 'zustand';
-import type { Account, CreateAccountRequest, UpdateAccountRequest } from '../../../shared/types';
-import { API_URL } from '../config/api';
-import { authenticatedFetch } from '../utils/api';
+import { storage } from '../storage';
+
+interface Account {
+  id: string;
+  name: string;
+  balance: number;
+  type: 'checking' | 'savings' | 'credit' | 'investment';
+}
 
 interface AccountState {
   accounts: Account[];
   loading: boolean;
   error: string | null;
-  fetchAccounts: () => Promise<void>;
-  createAccount: (account: CreateAccountRequest) => Promise<void>;
-  updateAccount: (account: UpdateAccountRequest) => Promise<void>;
-  deleteAccount: (id: number) => Promise<void>;
+  fetchAccounts: () => void;
+  createAccount: (account: Omit<Account, 'id'>) => void;
+  updateAccount: (account: Account) => void;
+  deleteAccount: (id: string) => void;
 }
 
 export const useAccountStore = create<AccountState>((set) => ({
@@ -18,67 +23,78 @@ export const useAccountStore = create<AccountState>((set) => ({
   loading: false,
   error: null,
 
-  fetchAccounts: async () => {
+  fetchAccounts: () => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/accounts`);
-      if (!response.ok) throw new Error('Failed to fetch accounts');
-      const accounts = await response.json();
-      set({ accounts, loading: false });
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to fetch accounts', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const accounts: Account[] = storage.getItem('accounts') || [];
+        set({ accounts, loading: false });
+      } catch (error) {
+        set({ error: 'Failed to fetch accounts', loading: false });
+      }
+    }, 100);
   },
 
-  createAccount: async (accountData: CreateAccountRequest) => {
+  createAccount: (accountData: Omit<Account, 'id'>) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/accounts`, {
-        method: 'POST',
-        body: JSON.stringify(accountData),
-      });
-      if (!response.ok) throw new Error('Failed to create account');
-      const newAccount = await response.json();
-      set(state => ({ 
-        accounts: [...state.accounts, newAccount], 
-        loading: false 
-      }));
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to create account', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const accounts: Account[] = storage.getItem('accounts') || [];
+        const newAccount: Account = {
+          ...accountData,
+          id: storage.generateId()
+        };
+        
+        accounts.push(newAccount);
+        storage.setItem('accounts', accounts);
+        
+        set(state => ({ 
+          accounts: [...state.accounts, newAccount], 
+          loading: false 
+        }));
+      } catch (error) {
+        set({ error: 'Failed to create account', loading: false });
+      }
+    }, 100);
   },
 
-  updateAccount: async (accountData: UpdateAccountRequest) => {
+  updateAccount: (accountData: Account) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/accounts/${accountData.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(accountData),
-      });
-      if (!response.ok) throw new Error('Failed to update account');
-      const updatedAccount = await response.json();
-      set(state => ({
-        accounts: state.accounts.map(acc => acc.id === accountData.id ? updatedAccount : acc),
-        loading: false
-      }));
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to update account', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const accounts: Account[] = storage.getItem('accounts') || [];
+        const index = accounts.findIndex(acc => acc.id === accountData.id);
+        
+        if (index !== -1) {
+          accounts[index] = accountData;
+          storage.setItem('accounts', accounts);
+        }
+        
+        set(state => ({
+          accounts: state.accounts.map(acc => acc.id === accountData.id ? accountData : acc),
+          loading: false
+        }));
+      } catch (error) {
+        set({ error: 'Failed to update account', loading: false });
+      }
+    }, 100);
   },
 
-  deleteAccount: async (id: number) => {
+  deleteAccount: (id: string) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/accounts/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete account');
-      set(state => ({
-        accounts: state.accounts.filter(acc => acc.id !== id),
-        loading: false
-      }));
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to delete account', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const accounts: Account[] = storage.getItem('accounts') || [];
+        const filteredAccounts = accounts.filter(acc => acc.id !== id);
+        storage.setItem('accounts', filteredAccounts);
+        
+        set(state => ({
+          accounts: state.accounts.filter(acc => acc.id !== id),
+          loading: false
+        }));
+      } catch (error) {
+        set({ error: 'Failed to delete account', loading: false });
+      }
+    }, 100);
   },
 }));

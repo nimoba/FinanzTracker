@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Calendar, DollarSign } from 'lucide-react';
-import type { CreateTransactionRequest, Transaction } from '../../../shared/types';
 import { useAccountStore } from '../stores/accountStore';
 import { useCategoryStore } from '../stores/categoryStore';
 
 interface TransactionFormProps {
-  transaction?: Transaction;
-  onSubmit: (data: CreateTransactionRequest) => void;
+  transaction?: any;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
   loading?: boolean;
 }
@@ -22,7 +21,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const { fetchCategories, getIncomeCategories, getExpenseCategories } = useCategoryStore();
   const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('expense');
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateTransactionRequest>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<any>({
     defaultValues: transaction ? {
       account_id: transaction.account_id,
       amount: transaction.amount,
@@ -50,7 +49,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [watchedType, setValue]);
 
-  const handleFormSubmit = (data: CreateTransactionRequest) => {
+  const handleFormSubmit = (data: any) => {
     onSubmit({
       ...data,
       amount: parseFloat(data.amount.toString()),
@@ -93,7 +92,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               <option value="transfer">Transfer</option>
             </select>
             {errors.type && (
-              <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.type?.message || '')}</p>
             )}
           </div>
 
@@ -113,7 +112,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               ))}
             </select>
             {errors.account_id && (
-              <p className="mt-1 text-sm text-red-600">{errors.account_id.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.account_id?.message || '')}</p>
             )}
           </div>
 
@@ -136,7 +135,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               />
             </div>
             {errors.amount && (
-              <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.amount?.message || '')}</p>
             )}
           </div>
 
@@ -172,7 +171,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               />
             </div>
             {errors.date && (
-              <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.date?.message || '')}</p>
             )}
           </div>
 
@@ -187,7 +186,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               placeholder="Enter transaction description"
             />
             {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+              <p className="mt-1 text-sm text-red-600">{String(errors.description?.message || '')}</p>
             )}
           </div>
 

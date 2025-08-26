@@ -1,13 +1,25 @@
 import { create } from 'zustand';
-import type { 
-  Transaction, 
-  CreateTransactionRequest, 
-  UpdateTransactionRequest, 
-  TransactionFilters,
-  PaginatedResponse 
-} from '../../../shared/types';
-import { API_URL } from '../config/api';
-import { authenticatedFetch } from '../utils/api';
+import { storage } from '../storage';
+
+interface Transaction {
+  id: string;
+  amount: number;
+  description: string;
+  category: string;
+  date: string;
+  type: 'income' | 'expense';
+  account?: string;
+}
+
+interface TransactionFilters {
+  page?: number;
+  limit?: number;
+  category?: string;
+  type?: 'income' | 'expense';
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}
 
 interface TransactionState {
   transactions: Transaction[];
@@ -18,10 +30,10 @@ interface TransactionState {
   loading: boolean;
   error: string | null;
   filters: TransactionFilters;
-  fetchTransactions: (filters?: TransactionFilters) => Promise<void>;
-  createTransaction: (transaction: CreateTransactionRequest) => Promise<void>;
-  updateTransaction: (transaction: UpdateTransactionRequest) => Promise<void>;
-  deleteTransaction: (id: number) => Promise<void>;
+  fetchTransactions: (filters?: TransactionFilters) => void;
+  createTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (transaction: Transaction) => void;
+  deleteTransaction: (id: string) => void;
   setFilters: (filters: Partial<TransactionFilters>) => void;
   clearFilters: () => void;
 }
@@ -41,80 +53,112 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   error: null,
   filters: defaultFilters,
 
-  fetchTransactions: async (filters?: TransactionFilters) => {
+  fetchTransactions: (filters?: TransactionFilters) => {
     const currentFilters = filters || get().filters;
     set({ loading: true, error: null, filters: currentFilters });
     
-    try {
-      const queryParams = new URLSearchParams();
-      Object.entries(currentFilters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          queryParams.append(key, value.toString());
+    setTimeout(() => {
+      try {
+        let transactions: Transaction[] = storage.getItem('transactions') || [];
+        
+        if (currentFilters.category) {
+          transactions = transactions.filter(t => t.category === currentFilters.category);
         }
-      });
-
-      const response = await authenticatedFetch(`${API_URL}/transactions?${queryParams}`);
-      if (!response.ok) throw new Error('Failed to fetch transactions');
-      
-      const data: PaginatedResponse<Transaction> = await response.json();
-      set({ 
-        transactions: data.data,
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-        totalPages: data.totalPages,
-        loading: false 
-      });
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to fetch transactions', loading: false });
-    }
+        
+        if (currentFilters.type) {
+          transactions = transactions.filter(t => t.type === currentFilters.type);
+        }
+        
+        if (currentFilters.search) {
+          const search = currentFilters.search.toLowerCase();
+          transactions = transactions.filter(t => 
+            t.description.toLowerCase().includes(search) ||
+            t.category.toLowerCase().includes(search)
+          );
+        }
+        
+        if (currentFilters.startDate) {
+          transactions = transactions.filter(t => t.date >= currentFilters.startDate!);
+        }
+        
+        if (currentFilters.endDate) {
+          transactions = transactions.filter(t => t.date <= currentFilters.endDate!);
+        }
+        
+        transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const total = transactions.length;
+        const page = currentFilters.page || 1;
+        const limit = currentFilters.limit || 20;
+        const startIndex = (page - 1) * limit;
+        const paginatedTransactions = transactions.slice(startIndex, startIndex + limit);
+        
+        set({ 
+          transactions: paginatedTransactions,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          loading: false 
+        });
+      } catch (error) {
+        set({ error: 'Failed to fetch transactions', loading: false });
+      }
+    }, 100);
   },
 
-  createTransaction: async (transactionData: CreateTransactionRequest) => {
+  createTransaction: (transactionData: Omit<Transaction, 'id'>) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/transactions`, {
-        method: 'POST',
-        body: JSON.stringify(transactionData),
-      });
-      if (!response.ok) throw new Error('Failed to create transaction');
-      
-      // Refresh transactions after creating
-      await get().fetchTransactions();
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to create transaction', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const transactions: Transaction[] = storage.getItem('transactions') || [];
+        const newTransaction: Transaction = {
+          ...transactionData,
+          id: storage.generateId()
+        };
+        
+        transactions.push(newTransaction);
+        storage.setItem('transactions', transactions);
+        
+        get().fetchTransactions();
+      } catch (error) {
+        set({ error: 'Failed to create transaction', loading: false });
+      }
+    }, 100);
   },
 
-  updateTransaction: async (transactionData: UpdateTransactionRequest) => {
+  updateTransaction: (transactionData: Transaction) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/transactions/${transactionData.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(transactionData),
-      });
-      if (!response.ok) throw new Error('Failed to update transaction');
-      
-      // Refresh transactions after updating
-      await get().fetchTransactions();
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to update transaction', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const transactions: Transaction[] = storage.getItem('transactions') || [];
+        const index = transactions.findIndex(t => t.id === transactionData.id);
+        
+        if (index !== -1) {
+          transactions[index] = transactionData;
+          storage.setItem('transactions', transactions);
+        }
+        
+        get().fetchTransactions();
+      } catch (error) {
+        set({ error: 'Failed to update transaction', loading: false });
+      }
+    }, 100);
   },
 
-  deleteTransaction: async (id: number) => {
+  deleteTransaction: (id: string) => {
     set({ loading: true, error: null });
-    try {
-      const response = await authenticatedFetch(`${API_URL}/transactions/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete transaction');
-      
-      // Refresh transactions after deleting
-      await get().fetchTransactions();
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to delete transaction', loading: false });
-    }
+    setTimeout(() => {
+      try {
+        const transactions: Transaction[] = storage.getItem('transactions') || [];
+        const filteredTransactions = transactions.filter(t => t.id !== id);
+        storage.setItem('transactions', filteredTransactions);
+        
+        get().fetchTransactions();
+      } catch (error) {
+        set({ error: 'Failed to delete transaction', loading: false });
+      }
+    }, 100);
   },
 
   setFilters: (newFilters: Partial<TransactionFilters>) => {
