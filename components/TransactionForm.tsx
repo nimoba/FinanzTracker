@@ -46,6 +46,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     beschreibung: transaction?.beschreibung || '',
   });
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryParent, setNewCategoryParent] = useState('');
   const [showNewCategory, setShowNewCategory] = useState(false);
 
   useEffect(() => {
@@ -96,6 +97,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           typ: formData.typ,
           farbe: '#36a2eb',
           icon: '💰',
+          parent_id: newCategoryParent || null,
         }),
       });
 
@@ -104,6 +106,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
         setCategories([...categories, newCategory]);
         setFormData({ ...formData, kategorie_id: newCategory.id });
         setNewCategoryName('');
+        setNewCategoryParent('');
         setShowNewCategory(false);
       }
     } catch (error) {
@@ -253,10 +256,28 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
               onChange={(e) => setNewCategoryName(e.target.value)}
               style={inputStyle}
             />
+            <select
+              value={newCategoryParent}
+              onChange={(e) => setNewCategoryParent(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Hauptkategorie (keine Übergeordnete)</option>
+              {categories
+                .filter(cat => !cat.parent_id)
+                .map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.icon} {category.name}
+                </option>
+              ))}
+            </select>
             <button type="button" onClick={handleCreateCategory} style={buttonStyle}>
               Erstellen
             </button>
-            <button type="button" onClick={() => setShowNewCategory(false)} style={secondaryButtonStyle}>
+            <button type="button" onClick={() => {
+              setShowNewCategory(false);
+              setNewCategoryName('');
+              setNewCategoryParent('');
+            }} style={secondaryButtonStyle}>
               Abbrechen
             </button>
           </div>

@@ -57,11 +57,18 @@ The app includes a setup endpoint that creates all necessary tables and adds def
 
 ### Database Schema
 
-- **kategorien**: Income and expense categories
+- **kategorien**: Income and expense categories (supports hierarchical subcategories)
 - **konten**: User accounts (checking, savings, etc.)
 - **transaktionen**: All financial transactions
 - **budgets**: Monthly budget limits by category
 - **sparziele**: Savings goals and progress
+
+### Subcategory System
+
+The app now supports hierarchical categories with parent-child relationships:
+- Main categories: Food, Transport, Entertainment, etc.
+- Subcategories: Groceries, Gas, Movies, etc.
+- Database migration available at `/api/finanzen/migrate`
 
 ## Environment Variables
 
@@ -116,13 +123,27 @@ This app uses a simple shared password authentication system suitable for person
 - Add/edit/delete transactions
 - Filter by account, category, type, date range
 - Search functionality
-- Category management with icons and colors
+- Hierarchical category selection with subcategories
 
 ### Accounts
 - Multiple account types supported
-- Real-time balance updates
+- Real-time balance updates with editing capability
 - Color-coded account cards
 - Account deletion protection
+
+### Categories (`/kategorien`)
+- Full category management interface
+- Create main categories and subcategories
+- Visual hierarchy display
+- Icon and color customization
+- Bulk subcategory creation via migration
+
+### Admin Tools (`/admin`)
+- Database connection status
+- Environment variable verification
+- Table information and row counts
+- Migration tools for existing databases
+- Database access documentation
 
 ### Budgets
 - Monthly budget setting by category
@@ -135,6 +156,22 @@ This app uses a simple shared password authentication system suitable for person
 - Category spending distribution
 - Top spending categories
 - Spending trends analysis
+
+## Database Management
+
+### Viewing Your Database
+1. **Vercel Dashboard**: Project → Storage → Postgres Database
+2. **External Tools**: Use connection details with:
+   - pgAdmin (full-featured GUI)
+   - TablePlus (modern client)
+   - DBeaver (free, universal)
+   - psql (command line)
+
+### Migration for Existing Installations
+If you already have data and need to add subcategories:
+1. Visit `/admin` to check database status
+2. Click "Run Migration" to add subcategory support
+3. Or make a POST request to `/api/finanzen/migrate`
 
 ## Contributing
 
