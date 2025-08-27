@@ -1,3 +1,5 @@
+// Updated dashboard with proper subcategory display
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import FloatingTabBar from '@/components/FloatingTabBar';
@@ -21,12 +23,23 @@ interface Transaction {
   konto_name: string;
   kategorie_name: string;
   kategorie_icon: string;
+  kategorie_id: number;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  typ: string;
+  icon: string;
+  parent_id?: number;
+  parent_name?: string;
 }
 
 export default function Dashboard() {
   const router = useRouter();
   const [summary, setSummary] = useState<DashboardData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -36,9 +49,10 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [summaryResponse, transactionsResponse] = await Promise.all([
+      const [summaryResponse, transactionsResponse, categoriesResponse] = await Promise.all([
         fetch('/api/finanzen/analysen?type=summary'),
-        fetch('/api/finanzen/transaktionen?limit=10')
+        fetch('/api/finanzen/transaktionen?limit=10'),
+        fetch('/api/finanzen/kategorien')
       ]);
 
       if (summaryResponse.ok) {
@@ -61,10 +75,25 @@ export default function Dashboard() {
         console.error('Transactions API Error:', transactionsResponse.status);
         setTransactions([]);
       }
+
+      // Load categories for better display
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        if (Array.isArray(categoriesData)) {
+          setCategories(categoriesData);
+        } else {
+          console.error('Invalid categories data format:', categoriesData);
+          setCategories([]);
+        }
+      } else {
+        console.error('Categories API Error:', categoriesResponse.status);
+        setCategories([]);
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       setSummary(null);
       setTransactions([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -130,6 +159,7 @@ export default function Dashboard() {
     padding: '8px 12px',
     fontSize: 14,
     cursor: 'pointer',
+    marginLeft: '8px',
   };
 
   const sectionTitleStyle: React.CSSProperties = {
@@ -181,13 +211,55 @@ export default function Dashboard() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <h1 style={titleStyle}>💰 FinanceFlow</h1>
-        <button 
-          style={appSwitcherStyle}
-          onClick={() => window.open('http://localhost:3001', '_blank')}
-        >
-          🍽️ Zur Kalorienverfolgung
-        </button>
+        <div>
+          <button 
+            style={appSwitcherStyle}
+            onClick={() => window.open('/debug-categories', '_blank')}
+          >
+            🔍 Debug
+          </button>
+          <button 
+            style={appSwitcherStyle}
+            onClick={() => router.push('/kategorien')}
+          >
+            🏷️ Kategorien
+          </button>
+          <button 
+            style={appSwitcherStyle}
+            onClick={() => window.open('http://localhost:3001', '_blank')}
+          >
+            🍽️ Zur Kalorienverfolgung
+          </button>
+        </div>
       </div>
+
+      {/* Database Status Warning */}
+      {categories.length === 0 && (
+        <div style={{
+          backgroundColor: '#4a1a1a',
+          border: '1px solid #f44336',
+          borderRadius: 8,
+          padding: 16,
+          marginBottom: 24,
+          color: '#f44336'
+        }}>
+          ⚠️ <strong>Datenbank noch nicht eingerichtet!</strong> 
+          <button 
+            onClick={() => window.open('/debug-categories', '_blank')}
+            style={{
+              backgroundColor: '#f44336',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '4px 8px',
+              marginLeft: 8,
+              cursor: 'pointer'
+            }}
+          >
+            Jetzt einrichten
+          </button>
+        </div>
+      )}
 
       {summary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
@@ -219,39 +291,61 @@ export default function Dashboard() {
         </div>
       )}
 
-      <h2 style={sectionTitleStyle}>Letzte Transaktionen</h2>
+      <h2 style={sectionTitleStyle}>
+        Letzte Transaktionen
+        {categories.filter(cat => cat.parent_id).length > 0 && (
+          <span style={{ fontSize: 14, color: '#4caf50', marginLeft: 8 }}>
+            ✅ Mit Unterkategorien
+          </span>
+        )}
+      </h2>
       
       {transactions.length > 0 ? (
         <div style={transactionListStyle}>
-          {transactions.map((transaction, index) => (
-            <div 
-              key={transaction.id} 
-              style={{
-                ...transactionItemStyle,
-                borderBottom: index === transactions.length - 1 ? 'none' : '1px solid #333'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: 20, marginRight: 12 }}>
-                  {transaction.kategorie_icon || '💰'}
-                </span>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>
-                    {transaction.beschreibung || transaction.kategorie_name}
-                  </div>
-                  <div style={{ fontSize: 14, color: '#999' }}>
-                    {transaction.konto_name} • {formatDate(transaction.datum)}
+          {transactions.map((transaction, index) => {
+            const category = categories.find(cat => cat.id === transaction.kategorie_id);
+            return (
+              <div 
+                key={transaction.id} 
+                style={{
+                  ...transactionItemStyle,
+                  borderBottom: index === transactions.length - 1 ? 'none' : '1px solid #333'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ fontSize: 20, marginRight: 12 }}>
+                    {transaction.kategorie_icon || '💰'}
+                  </span>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>
+                      {transaction.beschreibung || transaction.kategorie_name}
+                    </div>
+                    <div style={{ fontSize: 14, color: '#999' }}>
+                      {transaction.konto_name} • 
+                      <span style={{ marginLeft: 4 }}>
+                        {category?.parent_name ? (
+                          <span>
+                            <span style={{ color: '#666' }}>{category.parent_name}</span>
+                            <span style={{ color: '#36a2eb', margin: '0 4px' }}> › </span>
+                            <span>{category.name}</span>
+                          </span>
+                        ) : (
+                          transaction.kategorie_name
+                        )}
+                      </span>
+                      • {formatDate(transaction.datum)}
+                    </div>
                   </div>
                 </div>
+                <div style={{ 
+                  fontWeight: 'bold',
+                  color: transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'
+                }}>
+                  {transaction.typ === 'einnahme' ? '+' : '-'}{formatCurrency(transaction.betrag)}
+                </div>
               </div>
-              <div style={{ 
-                fontWeight: 'bold',
-                color: transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'
-              }}>
-                {transaction.typ === 'einnahme' ? '+' : '-'}{formatCurrency(transaction.betrag)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div style={{ 
@@ -263,6 +357,21 @@ export default function Dashboard() {
           color: '#999'
         }}>
           Noch keine Transaktionen vorhanden
+          <br />
+          <button 
+            onClick={() => setShowTransactionForm(true)}
+            style={{
+              backgroundColor: '#36a2eb',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 16px',
+              marginTop: 12,
+              cursor: 'pointer'
+            }}
+          >
+            Erste Transaktion hinzufügen
+          </button>
         </div>
       )}
 

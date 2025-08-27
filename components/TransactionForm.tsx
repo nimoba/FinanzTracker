@@ -1,3 +1,5 @@
+// Fixed Transaction Form with proper subcategory display
+
 import { useState, useEffect } from 'react';
 
 interface Account {
@@ -62,9 +64,10 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     try {
       const response = await fetch('/api/finanzen/konten');
       const data = await response.json();
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading accounts:', error);
+      setAccounts([]);
     }
   };
 
@@ -72,9 +75,11 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     try {
       const response = await fetch(`/api/finanzen/kategorien?typ=${formData.typ}`);
       const data = await response.json();
-      setCategories(data);
+      console.log(`Categories for ${formData.typ}:`, data); // Debug log
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading categories:', error);
+      setCategories([]);
     }
   };
 
@@ -108,11 +113,17 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
         setNewCategoryName('');
         setNewCategoryParent('');
         setShowNewCategory(false);
+        // Reload categories to get proper hierarchy
+        await loadCategories();
       }
     } catch (error) {
       console.error('Error creating category:', error);
     }
   };
+
+  // Group categories for better display
+  const mainCategories = categories.filter(cat => !cat.parent_id);
+  const subcategories = categories.filter(cat => cat.parent_id);
 
   const modalStyle: React.CSSProperties = {
     position: 'fixed',
@@ -131,7 +142,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     backgroundColor: '#1e1e1e',
     borderRadius: 12,
     padding: 24,
-    maxWidth: 400,
+    maxWidth: 500,
     width: '90%',
     maxHeight: '80vh',
     overflowY: 'auto',
@@ -146,6 +157,12 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     backgroundColor: '#2a2a2a',
     color: '#fff',
     marginBottom: 16,
+  };
+
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    height: 'auto',
+    minHeight: '48px',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -188,14 +205,14 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           <button
             type="button"
             style={typeToggleStyle(formData.typ === 'einnahme')}
-            onClick={() => setFormData({ ...formData, typ: 'einnahme' })}
+            onClick={() => setFormData({ ...formData, typ: 'einnahme', kategorie_id: 0 })}
           >
             💰 Einnahme
           </button>
           <button
             type="button"
             style={typeToggleStyle(formData.typ === 'ausgabe')}
-            onClick={() => setFormData({ ...formData, typ: 'ausgabe' })}
+            onClick={() => setFormData({ ...formData, typ: 'ausgabe', kategorie_id: 0 })}
           >
             💸 Ausgabe
           </button>
@@ -214,41 +231,87 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
         <select
           value={formData.konto_id}
           onChange={(e) => setFormData({ ...formData, konto_id: parseInt(e.target.value) })}
-          style={inputStyle}
+          style={selectStyle}
           required
         >
           <option value="">Konto auswählen</option>
           {accounts.map(account => (
             <option key={account.id} value={account.id}>
-              {account.name} ({account.typ})
+              {account.name} ({account.typ}) - {account.saldo.toFixed(2)}€
             </option>
           ))}
         </select>
 
-        <select
-          value={formData.kategorie_id}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value === 'new') {
-              setShowNewCategory(true);
-            } else {
-              setFormData({ ...formData, kategorie_id: parseInt(value) });
-            }
-          }}
-          style={inputStyle}
-          required
-        >
-          <option value="">Kategorie auswählen</option>
-          {categories.map(category => (
-            <option key={category.id} value={category.id}>
-              {category.parent_id ? '  ↳ ' : ''}{category.icon} {category.name}
+        {/* Enhanced Category Selection with Visual Hierarchy */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 8, color: '#ccc', fontSize: 14 }}>
+            Kategorie auswählen:
+          </label>
+          <select
+            value={formData.kategorie_id}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === 'new') {
+                setShowNewCategory(true);
+              } else {
+                setFormData({ ...formData, kategorie_id: parseInt(value) });
+              }
+            }}
+            style={selectStyle}
+            required
+          >
+            <option value="">Kategorie auswählen</option>
+            
+            {/* Group by main categories */}
+            {mainCategories.map(mainCategory => {
+              const subs = subcategories.filter(sub => sub.parent_id === mainCategory.id);
+              return (
+                <optgroup key={mainCategory.id} label={`${mainCategory.icon} ${mainCategory.name}`}>
+                  <option value={mainCategory.id}>
+                    {mainCategory.icon} {mainCategory.name} (Hauptkategorie)
+                  </option>
+                  {subs.map(subCategory => (
+                    <option key={subCategory.id} value={subCategory.id}>
+                      ↳ {subCategory.icon} {subCategory.name}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+            
+            {/* Categories without parents that have no children */}
+            {mainCategories
+              .filter(main => subcategories.filter(sub => sub.parent_id === main.id).length === 0)
+              .map(category => (
+              <option key={category.id} value={category.id}>
+                {category.icon} {category.name}
+              </option>
+            ))}
+            
+            <option value="new" style={{ borderTop: '1px solid #555', marginTop: 8 }}>
+              + Neue Kategorie erstellen
             </option>
-          ))}
-          <option value="new">+ Neue Kategorie erstellen</option>
-        </select>
+          </select>
+          
+          {/* Category Debug Info */}
+          {categories.length > 0 && (
+            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+              📊 {categories.length} Kategorien geladen ({mainCategories.length} Haupt, {subcategories.length} Unter)
+            </div>
+          )}
+        </div>
 
         {showNewCategory && (
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ 
+            backgroundColor: '#252525', 
+            borderRadius: 8, 
+            padding: 16, 
+            marginBottom: 16, 
+            border: '1px solid #36a2eb' 
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', color: '#36a2eb', fontSize: 16 }}>
+              Neue Kategorie erstellen
+            </h3>
             <input
               type="text"
               placeholder="Name der neuen Kategorie"
@@ -259,27 +322,27 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
             <select
               value={newCategoryParent}
               onChange={(e) => setNewCategoryParent(e.target.value)}
-              style={inputStyle}
+              style={selectStyle}
             >
               <option value="">Hauptkategorie (keine Übergeordnete)</option>
-              {categories
-                .filter(cat => !cat.parent_id)
-                .map(category => (
+              {mainCategories.map(category => (
                 <option key={category.id} value={category.id}>
                   {category.icon} {category.name}
                 </option>
               ))}
             </select>
-            <button type="button" onClick={handleCreateCategory} style={buttonStyle}>
-              Erstellen
-            </button>
-            <button type="button" onClick={() => {
-              setShowNewCategory(false);
-              setNewCategoryName('');
-              setNewCategoryParent('');
-            }} style={secondaryButtonStyle}>
-              Abbrechen
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={handleCreateCategory} style={buttonStyle}>
+                Erstellen
+              </button>
+              <button type="button" onClick={() => {
+                setShowNewCategory(false);
+                setNewCategoryName('');
+                setNewCategoryParent('');
+              }} style={secondaryButtonStyle}>
+                Abbrechen
+              </button>
+            </div>
           </div>
         )}
 
@@ -297,6 +360,38 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           onChange={(e) => setFormData({ ...formData, beschreibung: e.target.value })}
           style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
         />
+
+        {/* Selected Category Display */}
+        {formData.kategorie_id && categories.length > 0 && (
+          <div style={{
+            backgroundColor: '#252525',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            border: '1px solid #444'
+          }}>
+            {(() => {
+              const selectedCategory = categories.find(cat => cat.id === formData.kategorie_id);
+              if (selectedCategory) {
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <span style={{ fontSize: 18, marginRight: 8 }}>{selectedCategory.icon}</span>
+                    <span>
+                      {selectedCategory.parent_name && (
+                        <>
+                          <span style={{ color: '#999' }}>{selectedCategory.parent_name}</span>
+                          <span style={{ color: '#36a2eb', margin: '0 6px' }}> › </span>
+                        </>
+                      )}
+                      <span style={{ fontWeight: 'bold' }}>{selectedCategory.name}</span>
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button type="button" onClick={onCancel} style={secondaryButtonStyle} disabled={isLoading}>
