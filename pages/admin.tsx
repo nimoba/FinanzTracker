@@ -52,7 +52,7 @@ export default function AdminPage() {
         setMigrateResult(`❌ ${data.error}`);
       }
     } catch (error) {
-      setMigrateResult(`❌ Migration failed: ${error.message}`);
+      setMigrateResult(`❌ Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setMigrateLoading(false);
     }
