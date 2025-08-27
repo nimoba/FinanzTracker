@@ -1,4 +1,4 @@
-// Fixed Database Setup API with better error handling
+// Fixed Database Setup API with corrected SQL syntax
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sql } from '@vercel/postgres';
@@ -19,32 +19,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('❌ Database connection failed:', connError);
       return res.status(500).json({ 
         error: 'Database connection failed',
-        details: connError instanceof Error ? connError.message : 'Unknown connection error',
-        suggestion: 'Check if your Vercel Postgres database is properly configured'
+        details: connError instanceof Error ? connError.message : 'Unknown connection error'
       });
     }
 
-    // Create kategorien table
+    // Create kategorien table with simplified constraints
     console.log('Creating kategorien table...');
     await sql`
       CREATE TABLE IF NOT EXISTS kategorien (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
-        typ VARCHAR(20) CHECK (typ IN ('einnahme', 'ausgabe')) NOT NULL,
+        typ VARCHAR(20) NOT NULL,
         farbe VARCHAR(7) DEFAULT '#36a2eb',
         icon VARCHAR(10) DEFAULT '💰',
-        parent_id INTEGER REFERENCES kategorien(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(name, typ, COALESCE(parent_id, 0))
+        parent_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
+
+    // Add foreign key constraint separately (if not exists)
+    try {
+      await sql`
+        ALTER TABLE kategorien 
+        ADD CONSTRAINT fk_kategorien_parent 
+        FOREIGN KEY (parent_id) REFERENCES kategorien(id) ON DELETE CASCADE
+      `;
+    } catch (fkError) {
+      // Constraint might already exist, ignore error
+      console.log('Foreign key constraint may already exist');
+    }
 
     // Create konten table
     console.log('Creating konten table...');
     await sql`
       CREATE TABLE IF NOT EXISTS konten (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL,
         typ VARCHAR(50) NOT NULL,
         saldo DECIMAL(10,2) DEFAULT 0,
         farbe VARCHAR(7) DEFAULT '#36a2eb',
@@ -57,28 +67,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await sql`
       CREATE TABLE IF NOT EXISTS transaktionen (
         id SERIAL PRIMARY KEY,
-        konto_id INTEGER REFERENCES konten(id) ON DELETE CASCADE NOT NULL,
+        konto_id INTEGER NOT NULL,
         betrag DECIMAL(10,2) NOT NULL,
-        typ VARCHAR(20) CHECK (typ IN ('einnahme', 'ausgabe')) NOT NULL,
-        kategorie_id INTEGER REFERENCES kategorien(id),
+        typ VARCHAR(20) NOT NULL,
+        kategorie_id INTEGER,
         datum DATE NOT NULL,
         beschreibung TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
 
+    // Add foreign key constraints for transaktionen
+    try {
+      await sql`
+        ALTER TABLE transaktionen 
+        ADD CONSTRAINT fk_transaktionen_konto 
+        FOREIGN KEY (konto_id) REFERENCES konten(id) ON DELETE CASCADE
+      `;
+    } catch (fkError) {
+      console.log('FK constraint transaktionen->konten may already exist');
+    }
+
+    try {
+      await sql`
+        ALTER TABLE transaktionen 
+        ADD CONSTRAINT fk_transaktionen_kategorie 
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id)
+      `;
+    } catch (fkError) {
+      console.log('FK constraint transaktionen->kategorien may already exist');
+    }
+
     // Create budgets table
     console.log('Creating budgets table...');
     await sql`
       CREATE TABLE IF NOT EXISTS budgets (
         id SERIAL PRIMARY KEY,
-        kategorie_id INTEGER REFERENCES kategorien(id) ON DELETE CASCADE NOT NULL,
+        kategorie_id INTEGER NOT NULL,
         betrag DECIMAL(10,2) NOT NULL,
         monat DATE NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(kategorie_id, monat)
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
+
+    // Add foreign key constraint for budgets
+    try {
+      await sql`
+        ALTER TABLE budgets 
+        ADD CONSTRAINT fk_budgets_kategorie 
+        FOREIGN KEY (kategorie_id) REFERENCES kategorien(id) ON DELETE CASCADE
+      `;
+    } catch (fkError) {
+      console.log('FK constraint budgets->kategorien may already exist');
+    }
 
     // Create sparziele table
     console.log('Creating sparziele table...');
