@@ -1,4 +1,4 @@
-// Fixed Debug Page - compilation error resolved
+// Improved Debug Page with Database Check - fixes data type errors
 
 import { useState, useEffect } from 'react';
 
@@ -24,25 +24,18 @@ interface Transaction {
   kategorie_id: number;
 }
 
-interface DatabaseTestResult {
+interface DatabaseCheckResult {
   success: boolean;
   message: string;
-  connection_time_ms?: number;
-  tables?: {
-    existing: string[];
-    missing: string[];
-  };
-  data_stats?: {
-    categories?: { total: string; main_categories: string; subcategories: string };
-    accounts?: { total: string };
-    transactions?: { total: string };
-  };
-  environment?: {
-    postgres_url_exists: boolean;
-    vercel_env: string;
-  };
   error?: string;
   details?: string;
+  connection_time_ms?: number;
+  instructions?: string[];
+  environment?: {
+    has_postgres_url: boolean;
+    has_prisma_url: boolean;
+    vercel_env?: string;
+  };
 }
 
 export default function CategoryDebugPage() {
@@ -50,36 +43,36 @@ export default function CategoryDebugPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [setupLoading, setSetupLoading] = useState(false);
-  const [testLoading, setTestLoading] = useState(false);
-  const [dbTestResult, setDbTestResult] = useState<DatabaseTestResult | null>(null);
+  const [checkLoading, setCheckLoading] = useState(false);
+  const [dbCheckResult, setDbCheckResult] = useState<DatabaseCheckResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
+    quickDatabaseCheck();
     loadData();
-    testDatabase();
   }, []);
 
-  const testDatabase = async () => {
-    setTestLoading(true);
+  const quickDatabaseCheck = async () => {
+    setCheckLoading(true);
     try {
-      const response = await fetch('/api/test-db');
+      const response = await fetch('/api/db-check');
       const result = await response.json();
-      setDbTestResult(result);
+      setDbCheckResult(result);
       
       if (!result.success) {
-        setErrors(prev => [...prev, `Database test failed: ${result.details || result.error}`]);
+        setErrors(prev => [...prev, `Database check failed: ${result.message}`]);
       }
     } catch (error) {
-      console.error('Database test error:', error);
-      setDbTestResult({
+      console.error('Database check error:', error);
+      setDbCheckResult({
         success: false,
-        message: 'Failed to test database connection',
-        error: 'Connection test failed',
+        message: 'Failed to perform database check',
+        error: 'CHECK_FAILED',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
-      setErrors(prev => [...prev, `Database test request failed: ${error}`]);
+      setErrors(prev => [...prev, `Database check request failed: ${error}`]);
     } finally {
-      setTestLoading(false);
+      setCheckLoading(false);
     }
   };
 
@@ -87,7 +80,7 @@ export default function CategoryDebugPage() {
     const newErrors: string[] = [];
     
     try {
-      // Load categories
+      // Load categories with better error handling
       try {
         const categoriesRes = await fetch('/api/finanzen/kategorien');
         if (categoriesRes.ok) {
@@ -96,7 +89,7 @@ export default function CategoryDebugPage() {
           console.log('Categories from API:', categoriesData);
         } else {
           const errorText = await categoriesRes.text();
-          newErrors.push(`Categories API failed (${categoriesRes.status}): ${errorText}`);
+          newErrors.push(`Categories API failed (${categoriesRes.status}): ${errorText.substring(0, 200)}`);
           setCategories([]);
         }
       } catch (error) {
@@ -104,16 +97,25 @@ export default function CategoryDebugPage() {
         setCategories([]);
       }
 
-      // Load transactions
+      // Load transactions with better error handling
       try {
-        const transactionsRes = await fetch('/api/finanzen/transaktionen?limit=50');
+        const transactionsRes = await fetch('/api/finanzen/transaktionen?limit=10');
         if (transactionsRes.ok) {
           const transactionsData = await transactionsRes.json();
-          setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
+          if (Array.isArray(transactionsData)) {
+            // Fix potential data type issues
+            const fixedTransactions = transactionsData.map(t => ({
+              ...t,
+              betrag: typeof t.betrag === 'string' ? parseFloat(t.betrag) : (t.betrag || 0)
+            }));
+            setTransactions(fixedTransactions);
+          } else {
+            setTransactions([]);
+          }
           console.log('Transactions from API:', transactionsData);
         } else {
           const errorText = await transactionsRes.text();
-          newErrors.push(`Transactions API failed (${transactionsRes.status}): ${errorText}`);
+          newErrors.push(`Transactions API failed (${transactionsRes.status}): ${errorText.substring(0, 200)}`);
           setTransactions([]);
         }
       } catch (error) {
@@ -128,6 +130,11 @@ export default function CategoryDebugPage() {
   };
 
   const setupDatabase = async () => {
+    if (dbCheckResult && !dbCheckResult.success) {
+      alert(`❌ Database not connected!\n\nPlease set up Vercel Postgres first:\n${dbCheckResult.instructions?.join('\n') || 'Check Vercel dashboard → Storage → Create Postgres database'}`);
+      return;
+    }
+
     setSetupLoading(true);
     setErrors([]);
     
@@ -143,7 +150,7 @@ export default function CategoryDebugPage() {
       if (result.success) {
         alert(`✅ Setup successful!\n\nCreated:\n- ${result.stats?.total_categories || 0} total categories\n- ${result.stats?.main_categories || 0} main categories\n- ${result.stats?.subcategories || 0} subcategories\n- ${result.stats?.accounts || 0} accounts`);
         await loadData();
-        await testDatabase();
+        await quickDatabaseCheck();
       } else {
         const errorMsg = `❌ Setup failed: ${result.error}\n\nDetails: ${result.details || 'No additional details'}`;
         alert(errorMsg);
@@ -188,7 +195,7 @@ export default function CategoryDebugPage() {
   const mainCategories = categories.filter(cat => !cat.parent_id);
   const subcategories = categories.filter(cat => cat.parent_id);
 
-  if (loading && testLoading) {
+  if (loading && checkLoading) {
     return (
       <div style={containerStyle}>
         <div style={{ textAlign: 'center', marginTop: 100 }}>
@@ -205,16 +212,16 @@ export default function CategoryDebugPage() {
       
       <div style={{ marginBottom: '24px' }}>
         <button 
-          onClick={testDatabase} 
+          onClick={quickDatabaseCheck} 
           style={buttonStyle}
-          disabled={testLoading}
+          disabled={checkLoading}
         >
-          {testLoading ? '🔄 Testing...' : '🔍 Test Database'}
+          {checkLoading ? '🔄 Checking...' : '🔍 Check Database'}
         </button>
         <button 
           onClick={setupDatabase} 
           style={buttonStyle}
-          disabled={setupLoading}
+          disabled={setupLoading || (dbCheckResult && !dbCheckResult.success)}
         >
           {setupLoading ? '⚙️ Setting up...' : '🔧 Run Database Setup'}
         </button>
@@ -232,6 +239,44 @@ export default function CategoryDebugPage() {
           ← Back to Dashboard
         </button>
       </div>
+
+      {/* Database Setup Instructions */}
+      {dbCheckResult && !dbCheckResult.success && dbCheckResult.error === 'NO_DATABASE_URL' && (
+        <div style={{
+          ...cardStyle,
+          backgroundColor: '#4a1a1a',
+          border: '2px solid #f44336',
+          marginBottom: '24px'
+        }}>
+          <h2>🚨 Database Not Set Up</h2>
+          <p style={{ color: '#f44336', fontSize: '16px', fontWeight: 'bold' }}>
+            Your Vercel Postgres database is not configured!
+          </p>
+          <div style={{ marginTop: '16px' }}>
+            <h4>📋 Setup Instructions:</h4>
+            <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
+              {dbCheckResult.instructions?.map((instruction, index) => (
+                <li key={index} style={{ marginBottom: '4px' }}>{instruction}</li>
+              ))}
+            </ol>
+          </div>
+          <div style={{ 
+            backgroundColor: '#333', 
+            padding: '12px', 
+            borderRadius: '6px', 
+            marginTop: '16px',
+            fontSize: '14px'
+          }}>
+            <strong>Quick Link:</strong> <a 
+              href="https://vercel.com/dashboard" 
+              target="_blank" 
+              style={{ color: '#36a2eb' }}
+            >
+              Go to Vercel Dashboard →
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {errors.length > 0 && (
@@ -251,60 +296,36 @@ export default function CategoryDebugPage() {
         </div>
       )}
 
-      {/* Database Test Results */}
-      {dbTestResult && (
+      {/* Database Check Results */}
+      {dbCheckResult && (
         <div style={{
           ...cardStyle,
-          backgroundColor: dbTestResult.success ? '#1a4a1a' : '#4a1a1a',
-          border: `1px solid ${dbTestResult.success ? '#22c55e' : '#f44336'}`,
+          backgroundColor: dbCheckResult.success ? '#1a4a1a' : '#4a1a1a',
+          border: `1px solid ${dbCheckResult.success ? '#22c55e' : '#f44336'}`,
           marginBottom: '24px'
         }}>
-          <h2>🗄️ Database Connection Test</h2>
-          <p><strong>Status:</strong> {dbTestResult.success ? '✅ Connected' : '❌ Failed'}</p>
-          {dbTestResult.connection_time_ms && (
-            <p><strong>Connection Time:</strong> {dbTestResult.connection_time_ms}ms</p>
+          <h2>🗄️ Database Connection Status</h2>
+          <p><strong>Status:</strong> {dbCheckResult.success ? '✅ Connected' : '❌ Failed'}</p>
+          <p><strong>Message:</strong> {dbCheckResult.message}</p>
+          
+          {dbCheckResult.connection_time_ms && (
+            <p><strong>Connection Time:</strong> {dbCheckResult.connection_time_ms}ms</p>
           )}
           
-          {dbTestResult.environment && (
+          {dbCheckResult.environment && (
             <div style={{ marginTop: '12px' }}>
-              <strong>Environment:</strong>
+              <strong>Environment Check:</strong>
               <ul style={{ marginLeft: '20px' }}>
-                <li>Postgres URL configured: {dbTestResult.environment.postgres_url_exists ? '✅' : '❌'}</li>
-                <li>Vercel Environment: {dbTestResult.environment.vercel_env || 'unknown'}</li>
-              </ul>
-            </div>
-          )}
-
-          {dbTestResult.tables && (
-            <div style={{ marginTop: '12px' }}>
-              <strong>Database Tables:</strong>
-              <ul style={{ marginLeft: '20px' }}>
-                <li>Existing: {dbTestResult.tables.existing.join(', ') || 'None'}</li>
-                <li>Missing: {dbTestResult.tables.missing.join(', ') || 'None'}</li>
-              </ul>
-            </div>
-          )}
-
-          {dbTestResult.data_stats && (
-            <div style={{ marginTop: '12px' }}>
-              <strong>Data Statistics:</strong>
-              <ul style={{ marginLeft: '20px' }}>
-                {dbTestResult.data_stats.categories && (
-                  <li>Categories: {dbTestResult.data_stats.categories.total} total ({dbTestResult.data_stats.categories.main_categories} main, {dbTestResult.data_stats.categories.subcategories} sub)</li>
-                )}
-                {dbTestResult.data_stats.accounts && (
-                  <li>Accounts: {dbTestResult.data_stats.accounts.total}</li>
-                )}
-                {dbTestResult.data_stats.transactions && (
-                  <li>Transactions: {dbTestResult.data_stats.transactions.total}</li>
-                )}
+                <li>POSTGRES_URL: {dbCheckResult.environment.has_postgres_url ? '✅' : '❌'}</li>
+                <li>POSTGRES_PRISMA_URL: {dbCheckResult.environment.has_prisma_url ? '✅' : '❌'}</li>
+                <li>Environment: {dbCheckResult.environment.vercel_env || 'unknown'}</li>
               </ul>
             </div>
           )}
           
-          {!dbTestResult.success && (
+          {!dbCheckResult.success && dbCheckResult.details && (
             <div style={{ marginTop: '12px', color: '#f44336' }}>
-              <strong>Error:</strong> {dbTestResult.details || dbTestResult.error}
+              <strong>Error Details:</strong> {dbCheckResult.details}
             </div>
           )}
         </div>
@@ -313,6 +334,7 @@ export default function CategoryDebugPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
         <div style={cardStyle}>
           <h2>📊 Current Status</h2>
+          <p><strong>Database Connected:</strong> {dbCheckResult?.success ? '✅ Yes' : '❌ No'}</p>
           <p><strong>Total Categories:</strong> {categories.length}</p>
           <p><strong>Main Categories:</strong> {mainCategories.length}</p>
           <p><strong>Subcategories:</strong> {subcategories.length}</p>
@@ -322,147 +344,100 @@ export default function CategoryDebugPage() {
         </div>
 
         <div style={cardStyle}>
-          <h2>🎯 Recommendations</h2>
-          {dbTestResult?.success === false && (
-            <p style={{color: '#f44336'}}>❌ Fix database connection first</p>
+          <h2>🎯 Next Steps</h2>
+          {!dbCheckResult?.success && (
+            <div>
+              <p style={{color: '#f44336', fontWeight: 'bold'}}>🔥 URGENT: Set up Vercel Postgres database first!</p>
+              <p style={{color: '#ff9800'}}>⚠️ All other features won't work until database is connected</p>
+            </div>
           )}
-          {categories.length === 0 && dbTestResult?.success !== false && (
-            <p style={{color: '#f44336'}}>❌ Run database setup to create categories</p>
+          {dbCheckResult?.success && categories.length === 0 && (
+            <p style={{color: '#ff9800'}}>⚠️ Database connected but empty - run setup to add categories</p>
           )}
-          {subcategories.length === 0 && categories.length > 0 && (
-            <p style={{color: '#ff9800'}}>⚠️ No subcategories found - setup may have failed partially</p>
+          {categories.length > 0 && subcategories.length === 0 && (
+            <p style={{color: '#ff9800'}}>⚠️ Categories exist but no subcategories - re-run setup</p>
           )}
           {categories.length > 0 && subcategories.length > 0 && (
-            <p style={{color: '#4caf50'}}>✅ Database looks good!</p>
-          )}
-          {transactions.length === 0 && categories.length > 0 && (
-            <p style={{color: '#36a2eb'}}>💡 Ready to add transactions</p>
+            <p style={{color: '#4caf50'}}>✅ Everything looks good! Ready to use.</p>
           )}
         </div>
       </div>
 
-      {/* Categories Display */}
+      {/* Categories Display - only if we have data */}
       {categories.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-          <div>
-            <h2>💰 Income Categories ({categories.filter(cat => cat.typ === 'einnahme').length})</h2>
-            {categories.filter(cat => cat.typ === 'einnahme').map(category => (
-              <div key={category.id}>
-                <div style={{
+        <div>
+          <h2>📁 Categories Found ({categories.length})</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div>
+              <h3>💰 Income ({categories.filter(cat => cat.typ === 'einnahme').length})</h3>
+              {categories.filter(cat => cat.typ === 'einnahme').slice(0, 10).map(category => (
+                <div key={category.id} style={{
                   ...cardStyle,
                   backgroundColor: category.parent_id ? '#252525' : '#1e1e1e',
-                  marginLeft: category.parent_id ? '20px' : '0px'
+                  marginLeft: category.parent_id ? '20px' : '0px',
+                  padding: '8px 12px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {category.parent_id && <span style={{ marginRight: '8px', color: '#666' }}>↳</span>}
-                    <span style={{ fontSize: '20px', marginRight: '12px' }}>{category.icon}</span>
-                    <div>
-                      <div style={{ fontWeight: 'bold' }}>{category.name}</div>
-                      {category.parent_name && (
-                        <div style={{ fontSize: '12px', color: '#999' }}>
-                          Parent: {category.parent_name}
-                        </div>
-                      )}
-                      <div style={{ fontSize: '12px', color: '#666' }}>
-                        ID: {category.id} | Type: {category.typ}
-                        {category.parent_id && ` | Parent ID: ${category.parent_id}`}
-                      </div>
-                    </div>
-                  </div>
+                  <span>
+                    {category.parent_id && '↳ '}
+                    {category.icon} {category.name}
+                  </span>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <div>
-            <h2>💸 Expense Categories ({categories.filter(cat => cat.typ === 'ausgabe').length})</h2>
-            {categories.filter(cat => cat.typ === 'ausgabe').map(category => (
-              <div key={category.id}>
-                <div style={{
+            <div>
+              <h3>💸 Expenses ({categories.filter(cat => cat.typ === 'ausgabe').length})</h3>
+              {categories.filter(cat => cat.typ === 'ausgabe').slice(0, 10).map(category => (
+                <div key={category.id} style={{
                   ...cardStyle,
                   backgroundColor: category.parent_id ? '#252525' : '#1e1e1e',
-                  marginLeft: category.parent_id ? '20px' : '0px'
+                  marginLeft: category.parent_id ? '20px' : '0px',
+                  padding: '8px 12px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {category.parent_id && <span style={{ marginRight: '8px', color: '#666' }}>↳</span>}
-                    <span style={{ fontSize: '20px', marginRight: '12px' }}>{category.icon}</span>
-                    <div>
-                      <div style={{ fontWeight: 'bold' }}>{category.name}</div>
-                      {category.parent_name && (
-                        <div style={{ fontSize: '12px', color: '#999' }}>
-                          Parent: {category.parent_name}
-                        </div>
-                      )}
-                      <div style={{ fontSize: '12px', color: '#666' }}>
-                        ID: {category.id} | Type: {category.typ}
-                        {category.parent_id && ` | Parent ID: ${category.parent_id}`}
-                      </div>
-                    </div>
-                  </div>
+                  <span>
+                    {category.parent_id && '↳ '}
+                    {category.icon} {category.name}
+                  </span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Transactions Display */}
+      {/* Transactions Display - only if we have data */}
       {transactions.length > 0 && (
         <div style={{ marginTop: '32px' }}>
           <h2>📝 Recent Transactions ({transactions.length})</h2>
           <div style={cardStyle}>
-            {transactions.slice(0, 10).map((transaction, index) => {
-              const category = categories.find(cat => cat.id === transaction.kategorie_id);
-              return (
-                <div key={transaction.id} style={{
-                  padding: '12px',
-                  borderBottom: index < 9 ? '1px solid #333' : 'none',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontSize: '18px', marginRight: '12px' }}>
-                      {transaction.kategorie_icon || '💰'}
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 'bold' }}>
-                        {transaction.beschreibung || transaction.kategorie_name}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        {transaction.konto_name} • {transaction.kategorie_name}
-                        {category?.parent_name && ` (${category.parent_name})`}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#666' }}>
-                        Category ID: {transaction.kategorie_id} • Transaction ID: {transaction.id}
-                      </div>
-                    </div>
+            {transactions.slice(0, 5).map((transaction, index) => (
+              <div key={transaction.id} style={{
+                padding: '12px',
+                borderBottom: index < 4 ? '1px solid #333' : 'none',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 'bold' }}>
+                    {transaction.beschreibung || transaction.kategorie_name}
                   </div>
-                  <div style={{ 
-                    fontWeight: 'bold',
-                    color: transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'
-                  }}>
-                    {transaction.typ === 'einnahme' ? '+' : '-'}
-                    {transaction.betrag.toFixed(2)}€
+                  <div style={{ fontSize: '12px', color: '#999' }}>
+                    {transaction.konto_name} • {transaction.kategorie_name}
                   </div>
                 </div>
-              );
-            })}
+                <div style={{ 
+                  fontWeight: 'bold',
+                  color: transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'
+                }}>
+                  {transaction.typ === 'einnahme' ? '+' : '-'}
+                  {(transaction.betrag || 0).toFixed(2)}€
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
-
-      {/* Help Section */}
-      <div style={{ marginTop: '32px', padding: '16px', backgroundColor: '#333', borderRadius: '8px' }}>
-        <h3>🔧 Troubleshooting Steps:</h3>
-        <ol style={{ paddingLeft: '20px' }}>
-          <li>If database test fails: Check Vercel Postgres configuration</li>
-          <li>If no categories exist: Click "Run Database Setup"</li>
-          <li>If setup fails: Check browser console (F12) for detailed errors</li>
-          <li>If categories exist but subcategories are missing: Re-run setup</li>
-          <li>If data doesn't display: Check API endpoints and CORS settings</li>
-        </ol>
-      </div>
     </div>
   );
 }
