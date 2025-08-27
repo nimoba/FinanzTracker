@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Test database connection
     let connectionStatus = 'disconnected';
-    let tableInfo = {};
+    let tableInfo: Record<string, number | string | boolean> = {};
     let error = null;
 
     try {
