@@ -14,7 +14,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name VARCHAR(100) NOT NULL,
         typ VARCHAR(20) CHECK (typ IN ('einnahme', 'ausgabe')),
         farbe VARCHAR(7) DEFAULT '#36a2eb',
-        icon VARCHAR(10) DEFAULT '💰'
+        icon VARCHAR(10) DEFAULT '💰',
+        parent_id INTEGER REFERENCES kategorien(id) ON DELETE CASCADE
       );
     `;
 
@@ -86,12 +87,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { name: 'Sonstiges', typ: 'ausgabe', icon: '💸', farbe: '#e65100' },
     ];
 
+    // First, insert main categories
     for (const category of defaultCategories) {
       await sql`
         INSERT INTO kategorien (name, typ, icon, farbe)
         VALUES (${category.name}, ${category.typ}, ${category.icon}, ${category.farbe})
         ON CONFLICT DO NOTHING;
       `;
+    }
+
+    // Then add subcategories
+    const subcategories = [
+      // Unterhaltung subcategories
+      { name: 'Videospiele', parentName: 'Unterhaltung', icon: '🎮', farbe: '#9c27b0' },
+      { name: 'Kino & Theater', parentName: 'Unterhaltung', icon: '🎭', farbe: '#9c27b0' },
+      { name: 'Ausgehen', parentName: 'Unterhaltung', icon: '🍺', farbe: '#9c27b0' },
+      { name: 'Streaming', parentName: 'Unterhaltung', icon: '📺', farbe: '#9c27b0' },
+      
+      // Lebensmittel subcategories
+      { name: 'Supermarkt', parentName: 'Lebensmittel', icon: '🏪', farbe: '#f44336' },
+      { name: 'Restaurant', parentName: 'Lebensmittel', icon: '🍽️', farbe: '#f44336' },
+      { name: 'Café', parentName: 'Lebensmittel', icon: '☕', farbe: '#f44336' },
+      { name: 'Lieferservice', parentName: 'Lebensmittel', icon: '🥡', farbe: '#f44336' },
+      
+      // Transport subcategories
+      { name: 'Öffentliche Verkehrsmittel', parentName: 'Transport', icon: '🚇', farbe: '#dc2626' },
+      { name: 'Benzin', parentName: 'Transport', icon: '⛽', farbe: '#dc2626' },
+      { name: 'Taxi/Uber', parentName: 'Transport', icon: '🚕', farbe: '#dc2626' },
+      { name: 'Parkgebühren', parentName: 'Transport', icon: '🅿️', farbe: '#dc2626' },
+      
+      // Gehalt subcategories
+      { name: 'Grundgehalt', parentName: 'Gehalt', icon: '💼', farbe: '#22c55e' },
+      { name: 'Bonus', parentName: 'Gehalt', icon: '🎯', farbe: '#22c55e' },
+      { name: 'Überstunden', parentName: 'Gehalt', icon: '⏰', farbe: '#22c55e' },
+      
+      // Kleidung subcategories
+      { name: 'Arbeitskleidung', parentName: 'Kleidung', icon: '👔', farbe: '#7f1d1d' },
+      { name: 'Freizeitkleidung', parentName: 'Kleidung', icon: '👕', farbe: '#7f1d1d' },
+      { name: 'Schuhe', parentName: 'Kleidung', icon: '👟', farbe: '#7f1d1d' },
+    ];
+
+    for (const subcat of subcategories) {
+      // Find parent category ID
+      const { rows: parentRows } = await sql`
+        SELECT id, typ FROM kategorien WHERE name = ${subcat.parentName} AND parent_id IS NULL
+      `;
+      
+      if (parentRows.length > 0) {
+        const parentId = parentRows[0].id;
+        const parentType = parentRows[0].typ;
+        
+        await sql`
+          INSERT INTO kategorien (name, typ, icon, farbe, parent_id)
+          VALUES (${subcat.name}, ${parentType}, ${subcat.icon}, ${subcat.farbe}, ${parentId})
+          ON CONFLICT DO NOTHING;
+        `;
+      }
     }
 
     // Add a default account

@@ -261,7 +261,7 @@ export default function BudgetsPage() {
 
   const floatingButtonStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 80,
+    bottom: 100,
     right: 20,
     width: 56,
     height: 56,

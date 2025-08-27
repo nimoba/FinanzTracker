@@ -155,7 +155,7 @@ export default function Dashboard() {
 
   const floatingButtonStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 80,
+    bottom: 100,
     right: 20,
     width: 56,
     height: 56,
@@ -195,7 +195,7 @@ export default function Dashboard() {
             icon="💰"
             title="Gesamtsaldo"
             value={formatCurrency(summary.gesamtsaldo || 0)}
-            color="#4caf50"
+            color={summary.gesamtsaldo >= 0 ? "#4caf50" : "#f44336"}
           />
           <StatsCard
             icon="📈"

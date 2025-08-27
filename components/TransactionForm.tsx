@@ -236,7 +236,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           <option value="">Kategorie auswählen</option>
           {categories.map(category => (
             <option key={category.id} value={category.id}>
-              {category.icon} {category.name}
+              {category.parent_id ? '  ↳ ' : ''}{category.icon} {category.name}
             </option>
           ))}
           <option value="new">+ Neue Kategorie erstellen</option>

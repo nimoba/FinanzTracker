@@ -233,7 +233,7 @@ export default function TransactionsPage() {
 
   const floatingButtonStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 80,
+    bottom: 100,
     right: 20,
     width: 56,
     height: 56,
@@ -297,7 +297,9 @@ export default function TransactionsPage() {
           >
             <option value="">Alle Kategorien</option>
             {categories.map(category => (
-              <option key={category.id} value={category.id}>{category.name}</option>
+              <option key={category.id} value={category.id}>
+                {category.parent_id ? '  ↳ ' : ''}{category.icon} {category.name}
+              </option>
             ))}
           </select>
 

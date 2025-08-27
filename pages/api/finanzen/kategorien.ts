@@ -18,22 +18,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       const { rows } = params.length > 0 
         ? await sql.query(query, params)
-        : await sql`SELECT * FROM kategorien ORDER BY name`;
+        : await sql`
+          SELECT k.*, p.name as parent_name 
+          FROM kategorien k 
+          LEFT JOIN kategorien p ON k.parent_id = p.id 
+          ORDER BY COALESCE(p.name, k.name), k.parent_id NULLS FIRST, k.name
+        `;
         
       res.status(200).json(rows);
     } else if (req.method === 'POST') {
-      const { name, typ, farbe, icon } = req.body;
+      const { name, typ, farbe, icon, parent_id } = req.body;
       const { rows } = await sql`
-        INSERT INTO kategorien (name, typ, farbe, icon)
-        VALUES (${name}, ${typ}, ${farbe || '#36a2eb'}, ${icon || '💰'})
+        INSERT INTO kategorien (name, typ, farbe, icon, parent_id)
+        VALUES (${name}, ${typ}, ${farbe || '#36a2eb'}, ${icon || '💰'}, ${parent_id || null})
         RETURNING *
       `;
       res.status(201).json(rows[0]);
     } else if (req.method === 'PUT') {
-      const { id, name, typ, farbe, icon } = req.body;
+      const { id, name, typ, farbe, icon, parent_id } = req.body;
       const { rows } = await sql`
         UPDATE kategorien 
-        SET name = ${name}, typ = ${typ}, farbe = ${farbe}, icon = ${icon}
+        SET name = ${name}, typ = ${typ}, farbe = ${farbe}, icon = ${icon}, parent_id = ${parent_id || null}
         WHERE id = ${id}
         RETURNING *
       `;

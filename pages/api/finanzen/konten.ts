@@ -17,10 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `;
       res.status(201).json(rows[0]);
     } else if (req.method === 'PUT') {
-      const { id, name, typ, farbe } = req.body;
+      const { id, name, typ, saldo, farbe } = req.body;
       const { rows } = await sql`
         UPDATE konten 
-        SET name = ${name}, typ = ${typ}, farbe = ${farbe}
+        SET name = ${name}, typ = ${typ}, saldo = ${saldo}, farbe = ${farbe}
         WHERE id = ${id}
         RETURNING *
       `;

@@ -186,7 +186,7 @@ export default function AccountsPage() {
 
   const floatingButtonStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 80,
+    bottom: 100,
     right: 20,
     width: 56,
     height: 56,
@@ -200,7 +200,7 @@ export default function AccountsPage() {
     zIndex: 99,
   };
 
-  const totalBalance = accounts && accounts.length > 0 ? accounts.reduce((sum, account) => sum + account.saldo, 0) : 0;
+  const totalBalance = accounts && accounts.length > 0 ? accounts.reduce((sum, account) => sum + (parseFloat(account.saldo as any) || 0), 0) : 0;
 
   if (loading) {
     return (
