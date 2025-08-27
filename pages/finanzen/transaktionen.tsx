@@ -24,6 +24,10 @@ interface Category {
   id: number;
   name: string;
   typ: string;
+  icon: string;
+  farbe: string;
+  parent_id?: number;
+  parent_name?: string;
 }
 
 export default function TransactionsPage() {

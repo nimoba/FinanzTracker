@@ -13,6 +13,8 @@ interface Category {
   typ: 'einnahme' | 'ausgabe';
   icon: string;
   farbe: string;
+  parent_id?: number;
+  parent_name?: string;
 }
 
 interface Transaction {
