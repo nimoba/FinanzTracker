@@ -1,170 +1,180 @@
+// Transfer API - Handle transfers between accounts
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sql } from '@vercel/postgres';
 
+// Simple UUID generator function
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (req.method === 'GET') {\n      // Get all transfers with linked transaction details
-      const { limit = '50', offset = '0' } = req.query;
+    if (req.method === 'POST') {
+      const { 
+        von_konto_id, 
+        zu_konto_id, 
+        betrag, 
+        datum, 
+        beschreibung 
+      } = req.body;
       
-      const { rows } = await sql`
-        SELECT 
-          t1.id as from_transaction_id,
-          t1.konto_id as from_account_id,
-          k1.name as from_account_name,
-          t1.betrag as amount,
-          t1.datum as date,
-          t1.beschreibung as description,
-          t2.id as to_transaction_id,
-          t2.konto_id as to_account_id,
-          k2.name as to_account_name,
-          t1.created_at
-        FROM transaktionen t1
-        JOIN transaktionen t2 ON t1.transfer_id = t2.id
-        JOIN konten k1 ON t1.konto_id = k1.id
-        JOIN konten k2 ON t2.konto_id = k2.id
-        WHERE t1.typ = 'transfer_out' AND t2.typ = 'transfer_in'
-        ORDER BY t1.datum DESC, t1.created_at DESC
-        LIMIT ${parseInt(limit as string)} OFFSET ${parseInt(offset as string)}
+      if (!von_konto_id || !zu_konto_id || !betrag || !datum) {
+        return res.status(400).json({ 
+          error: 'Von-Konto, Zu-Konto, Betrag und Datum sind erforderlich' 
+        });
+      }
+
+      if (von_konto_id === zu_konto_id) {
+        return res.status(400).json({ 
+          error: 'Quell- und Zielkonto können nicht identisch sein' 
+        });
+      }
+
+      if (parseFloat(betrag) <= 0) {
+        return res.status(400).json({ 
+          error: 'Betrag muss größer als 0 sein' 
+        });
+      }
+
+      // Verify both accounts exist
+      const { rows: accounts } = await sql`
+        SELECT id, name FROM konten WHERE id IN (${von_konto_id}, ${zu_konto_id})
       `;
       
-      res.status(200).json(rows);
-    } 
-    else if (req.method === 'POST') {
-      const { from_account_id, to_account_id, amount, date, description } = req.body;
-      
-      if (!from_account_id || !to_account_id || !amount || !date) {
-        return res.status(400).json({ error: 'Missing required fields' });
+      if (accounts.length !== 2) {
+        return res.status(400).json({ error: 'Ein oder beide Konten existieren nicht' });
       }
+
+      const vonKonto = accounts.find(a => a.id === parseInt(von_konto_id));
+      const zuKonto = accounts.find(a => a.id === parseInt(zu_konto_id));
+
+      // Generate unique transfer ID
+      const transferId = generateUUID();
       
-      if (from_account_id === to_account_id) {
-        return res.status(400).json({ error: 'Cannot transfer to the same account' });
-      }
-      
-      const numericAmount = parseFloat(amount);
-      if (numericAmount <= 0) {
-        return res.status(400).json({ error: 'Amount must be positive' });
-      }
-      
-      await sql`BEGIN`;
-      
-      try {
-        // Create the outgoing transfer transaction
-        const { rows: outgoingRows } = await sql`
-          INSERT INTO transaktionen (konto_id, betrag, typ, datum, beschreibung)
-          VALUES (${from_account_id}, ${numericAmount}, 'transfer_out', ${date}, ${description || 'Transfer'})
-          RETURNING id
-        `;
-        const outgoingId = outgoingRows[0].id;
-        
-        // Create the incoming transfer transaction
-        const { rows: incomingRows } = await sql`
-          INSERT INTO transaktionen (konto_id, betrag, typ, datum, beschreibung, transfer_id)
-          VALUES (${to_account_id}, ${numericAmount}, 'transfer_in', ${date}, ${description || 'Transfer'}, ${outgoingId})
-          RETURNING id
-        `;
-        const incomingId = incomingRows[0].id;
-        
-        // Link the transactions together
-        await sql`
-          UPDATE transaktionen 
-          SET transfer_id = ${incomingId}
-          WHERE id = ${outgoingId}
-        `;
-        
-        // Update account balances
-        await sql`
-          UPDATE konten 
-          SET saldo = saldo - ${numericAmount}
-          WHERE id = ${from_account_id}
-        `;
-        
-        await sql`
-          UPDATE konten 
-          SET saldo = saldo + ${numericAmount}
-          WHERE id = ${to_account_id}
-        `;
-        
-        await sql`COMMIT`;
-        
-        // Return the transfer details
-        const { rows: transferDetails } = await sql`
-          SELECT 
-            t1.id as from_transaction_id,
-            t1.konto_id as from_account_id,
-            k1.name as from_account_name,
-            t1.betrag as amount,
-            t1.datum as date,
-            t1.beschreibung as description,
-            t2.id as to_transaction_id,
-            t2.konto_id as to_account_id,
-            k2.name as to_account_name
-          FROM transaktionen t1
-          JOIN transaktionen t2 ON t1.transfer_id = t2.id
-          JOIN konten k1 ON t1.konto_id = k1.id
-          JOIN konten k2 ON t2.konto_id = k2.id
-          WHERE t1.id = ${outgoingId}
-        `;
-        
-        res.status(201).json(transferDetails[0]);
-      } catch (error) {
-        await sql`ROLLBACK`;
-        throw error;
-      }
-    } 
+      // Create outgoing transaction (negative amount)
+      const { rows: outgoingTransaction } = await sql`
+        INSERT INTO transaktionen (
+          konto_id, betrag, typ, datum, beschreibung, transfer_id, ziel_konto_id
+        )
+        VALUES (
+          ${von_konto_id}, 
+          ${-Math.abs(parseFloat(betrag))}, 
+          'transfer_out', 
+          ${datum}, 
+          ${beschreibung || `Transfer zu ${zuKonto.name}`},
+          ${transferId},
+          ${zu_konto_id}
+        )
+        RETURNING *
+      `;
+
+      // Create incoming transaction (positive amount)
+      const { rows: incomingTransaction } = await sql`
+        INSERT INTO transaktionen (
+          konto_id, betrag, typ, datum, beschreibung, transfer_id, ziel_konto_id
+        )
+        VALUES (
+          ${zu_konto_id}, 
+          ${Math.abs(parseFloat(betrag))}, 
+          'transfer_in', 
+          ${datum}, 
+          ${beschreibung || `Transfer von ${vonKonto.name}`},
+          ${transferId},
+          ${von_konto_id}
+        )
+        RETURNING *
+      `;
+
+      // Update account balances
+      await sql`
+        UPDATE konten 
+        SET saldo = saldo - ${Math.abs(parseFloat(betrag))}
+        WHERE id = ${von_konto_id}
+      `;
+
+      await sql`
+        UPDATE konten 
+        SET saldo = saldo + ${Math.abs(parseFloat(betrag))}
+        WHERE id = ${zu_konto_id}
+      `;
+
+      res.status(201).json({
+        success: true,
+        transfer_id: transferId,
+        outgoing_transaction: outgoingTransaction[0],
+        incoming_transaction: incomingTransaction[0],
+        message: `Transfer von ${Math.abs(parseFloat(betrag)).toFixed(2)}€ von ${vonKonto.name} zu ${zuKonto.name} erfolgreich`
+      });
+    }
+    else if (req.method === 'GET') {
+      // Get all transfers with account information
+      const { rows: transfers } = await sql`
+        SELECT DISTINCT
+          t1.transfer_id,
+          t1.datum,
+          t1.beschreibung,
+          ABS(t1.betrag) as betrag,
+          k1.name as von_konto,
+          k1.id as von_konto_id,
+          k2.name as zu_konto,
+          k2.id as zu_konto_id,
+          t1.created_at
+        FROM transaktionen t1
+        JOIN transaktionen t2 ON t1.transfer_id = t2.transfer_id AND t1.id != t2.id
+        JOIN konten k1 ON t1.konto_id = k1.id
+        JOIN konten k2 ON t2.konto_id = k2.id
+        WHERE t1.typ = 'transfer_out' AND t1.transfer_id IS NOT NULL
+        ORDER BY t1.datum DESC, t1.created_at DESC
+      `;
+
+      res.status(200).json(transfers);
+    }
     else if (req.method === 'DELETE') {
-      const { id } = req.query; // This should be the outgoing transaction ID
+      const { transfer_id } = req.query;
       
-      await sql`BEGIN`;
-      
-      try {
-        // Get the transfer details
-        const { rows: transferRows } = await sql`
-          SELECT t1.*, t2.id as linked_id, t2.konto_id as to_account_id
-          FROM transaktionen t1
-          LEFT JOIN transaktionen t2 ON t1.transfer_id = t2.id
-          WHERE t1.id = ${id as string} AND t1.typ = 'transfer_out'
-        `;
-        
-        if (transferRows.length === 0) {
-          await sql`ROLLBACK`;
-          return res.status(404).json({ error: 'Transfer not found' });
-        }
-        
-        const transfer = transferRows[0];
-        
-        // Reverse the balance changes
+      if (!transfer_id) {
+        return res.status(400).json({ error: 'Transfer ID ist erforderlich' });
+      }
+
+      // Get transfer transactions before deletion
+      const { rows: transferTransactions } = await sql`
+        SELECT * FROM transaktionen WHERE transfer_id = ${transfer_id as string}
+      `;
+
+      if (transferTransactions.length !== 2) {
+        return res.status(404).json({ error: 'Transfer nicht gefunden oder unvollständig' });
+      }
+
+      // Reverse account balance changes
+      for (const transaction of transferTransactions) {
         await sql`
           UPDATE konten 
-          SET saldo = saldo + ${transfer.betrag}
-          WHERE id = ${transfer.konto_id}
+          SET saldo = saldo - ${transaction.betrag}
+          WHERE id = ${transaction.konto_id}
         `;
-        
-        if (transfer.to_account_id) {
-          await sql`
-            UPDATE konten 
-            SET saldo = saldo - ${transfer.betrag}
-            WHERE id = ${transfer.to_account_id}
-          `;
-        }
-        
-        // Delete both transactions
-        await sql`DELETE FROM transaktionen WHERE id = ${id as string}`;
-        if (transfer.linked_id) {
-          await sql`DELETE FROM transaktionen WHERE id = ${transfer.linked_id}`;
-        }
-        
-        await sql`COMMIT`;
-        res.status(200).json({ success: true });
-      } catch (error) {
-        await sql`ROLLBACK`;
-        throw error;
       }
-    } 
+
+      // Delete both transactions
+      const { rowCount } = await sql`
+        DELETE FROM transaktionen WHERE transfer_id = ${transfer_id as string}
+      `;
+
+      res.status(200).json({ 
+        success: true, 
+        message: `Transfer gelöscht, ${rowCount} Transaktionen entfernt`,
+        deleted_transactions: rowCount
+      });
+    }
     else {
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Transfer API error:', error);
+    console.error('Transfer error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'

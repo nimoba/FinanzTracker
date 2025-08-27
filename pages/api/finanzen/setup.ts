@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    console.log('Starting enhanced database setup with 3-level categories...');
+    console.log('Starting database setup...');
     
     // Test database connection first
     try {
@@ -62,8 +62,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
     `;
 
-    // Create enhanced transaktionen table with transfer support
-    console.log('Creating transaktionen table with transfer support...');
+    // Create transaktionen table with transfer support
+    console.log('Creating transaktionen table...');
     await sql`
       CREATE TABLE IF NOT EXISTS transaktionen (
         id SERIAL PRIMARY KEY,
@@ -103,14 +103,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await sql`
         ALTER TABLE transaktionen 
-        ADD CONSTRAINT fk_transaktionen_ziel 
+        ADD CONSTRAINT fk_transaktionen_ziel_konto 
         FOREIGN KEY (ziel_konto_id) REFERENCES konten(id)
       `;
     } catch (fkError) {
       console.log('FK constraint transaktionen->ziel_konto may already exist');
     }
 
-    // Create other tables...
+    // Create budgets table
     console.log('Creating budgets table...');
     await sql`
       CREATE TABLE IF NOT EXISTS budgets (
@@ -122,6 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
     `;
 
+    // Add foreign key constraint for budgets
     try {
       await sql`
         ALTER TABLE budgets 
@@ -132,6 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('FK constraint budgets->kategorien may already exist');
     }
 
+    // Create sparziele table
     console.log('Creating sparziele table...');
     await sql`
       CREATE TABLE IF NOT EXISTS sparziele (
@@ -160,211 +162,212 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Create 3-Level Category System
-    console.log('Adding 3-level category system...');
-
-    // Level 1: Main Categories (both income and expense versions)
-    const mainCategories = [
+    // Add Level 1 categories (High Level)
+    console.log('Adding Level 1 categories...');
+    const level1Categories = [
       // Income categories
-      { name: 'Essen & Trinken', typ: 'einnahme', icon: '🍽️', farbe: '#22c55e', level: 1 },
-      { name: 'Einkaufen', typ: 'einnahme', icon: '🛒', farbe: '#16a34a', level: 1 },
-      { name: 'Wohnen', typ: 'einnahme', icon: '🏠', farbe: '#059669', level: 1 },
-      { name: 'Transport', typ: 'einnahme', icon: '🚗', farbe: '#047857', level: 1 },
-      { name: 'Fahrzeug', typ: 'einnahme', icon: '🚙', farbe: '#065f46', level: 1 },
-      { name: 'Kultur & Unterhaltung', typ: 'einnahme', icon: '🎭', farbe: '#10b981', level: 1 },
-      { name: 'Kommunikation & Technik', typ: 'einnahme', icon: '📱', farbe: '#34d399', level: 1 },
-      { name: 'Finanzaufwand', typ: 'einnahme', icon: '🏦', farbe: '#6ee7b7', level: 1 },
-      { name: 'Investments', typ: 'einnahme', icon: '📈', farbe: '#a7f3d0', level: 1 },
-      { name: 'Sonstiges', typ: 'einnahme', icon: '💰', farbe: '#d1fae5', level: 1 },
-
+      { name: 'Einkommen', typ: 'einnahme', icon: '💰', farbe: '#22c55e', level: 1 },
+      { name: 'Investments', typ: 'einnahme', icon: '📈', farbe: '#10b981', level: 1 },
+      { name: 'Sonstige Einnahmen', typ: 'einnahme', icon: '🎁', farbe: '#059669', level: 1 },
+      
       // Expense categories
       { name: 'Essen & Trinken', typ: 'ausgabe', icon: '🍽️', farbe: '#f44336', level: 1 },
-      { name: 'Einkaufen', typ: 'ausgabe', icon: '🛒', farbe: '#e53e3e', level: 1 },
+      { name: 'Einkaufen', typ: 'ausgabe', icon: '🛍️', farbe: '#e53e3e', level: 1 },
       { name: 'Wohnen', typ: 'ausgabe', icon: '🏠', farbe: '#dc2626', level: 1 },
       { name: 'Transport', typ: 'ausgabe', icon: '🚗', farbe: '#b91c1c', level: 1 },
       { name: 'Fahrzeug', typ: 'ausgabe', icon: '🚙', farbe: '#991b1b', level: 1 },
       { name: 'Kultur & Unterhaltung', typ: 'ausgabe', icon: '🎭', farbe: '#7f1d1d', level: 1 },
-      { name: 'Kommunikation & Technik', typ: 'ausgabe', icon: '📱', farbe: '#ef4444', level: 1 },
-      { name: 'Finanzaufwand', typ: 'ausgabe', icon: '🏦', farbe: '#fca5a5', level: 1 },
-      { name: 'Investments', typ: 'ausgabe', icon: '📈', farbe: '#fecaca', level: 1 },
-      { name: 'Sonstiges', typ: 'ausgabe', icon: '💸', farbe: '#fee2e2', level: 1 },
+      { name: 'Kommunikation & Technik', typ: 'ausgabe', icon: '📱', farbe: '#ff9800', level: 1 },
+      { name: 'Finanzaufwand', typ: 'ausgabe', icon: '🏦', farbe: '#f57c00', level: 1 },
+      { name: 'Sonstiges', typ: 'ausgabe', icon: '❓', farbe: '#ef6c00', level: 1 },
     ];
 
-    console.log('Adding main categories (Level 1)...');
-    const categoryMap = new Map();
-    
-    for (const category of mainCategories) {
+    const insertedLevel1 = [];
+    for (const category of level1Categories) {
       try {
         const { rows } = await sql`
           INSERT INTO kategorien (name, typ, icon, farbe, level, parent_id)
           VALUES (${category.name}, ${category.typ}, ${category.icon}, ${category.farbe}, ${category.level}, null)
           RETURNING id, name, typ
         `;
-        categoryMap.set(`${category.name}_${category.typ}`, rows[0].id);
-        console.log(`✅ Added Level 1: ${category.name} (${category.typ}) - ID: ${rows[0].id}`);
-      } catch (error) {
-        console.log(`⚠️ Main category ${category.name} (${category.typ}) might already exist`);
+        insertedLevel1.push({ ...rows[0], originalName: category.name });
+        console.log(`✅ Inserted Level 1 category: ${category.name} (ID: ${rows[0].id})`);
+      } catch (categoryError) {
+        console.error(`❌ Error with Level 1 category ${category.name}:`, categoryError);
       }
     }
 
-    // Level 2: Subcategories
-    const subcategories = [
-      // Essen & Trinken - Level 2
-      { name: 'Restaurant & Gastronomie', parent: 'Essen & Trinken', icon: '🍽️', farbe: '#f44336' },
-      { name: 'Lebensmittel Einkauf', parent: 'Essen & Trinken', icon: '🛒', farbe: '#f44336' },
-      { name: 'Getränke', parent: 'Essen & Trinken', icon: '🥤', farbe: '#f44336' },
-      { name: 'Süßigkeiten & Snacks', parent: 'Essen & Trinken', icon: '🍬', farbe: '#f44336' },
+    // Add Level 2 categories
+    console.log('Adding Level 2 categories...');
+    const level2Categories = [
+      // Einkommen subcategories
+      { name: 'Gehalt', parentName: 'Einkommen', icon: '💼', farbe: '#22c55e' },
+      { name: 'Freelancing', parentName: 'Einkommen', icon: '💻', farbe: '#16a34a' },
+      { name: 'Nebenjob', parentName: 'Einkommen', icon: '⏰', farbe: '#15803d' },
+      
+      // Investments subcategories
+      { name: 'Dividenden', parentName: 'Investments', icon: '💎', farbe: '#10b981' },
+      { name: 'Zinsen', parentName: 'Investments', icon: '🏦', farbe: '#059669' },
+      { name: 'Krypto', parentName: 'Investments', icon: '₿', farbe: '#047857' },
+      
+      // Sonstige Einnahmen subcategories
+      { name: 'Geschenke', parentName: 'Sonstige Einnahmen', icon: '🎁', farbe: '#059669' },
+      { name: 'Verkäufe', parentName: 'Sonstige Einnahmen', icon: '💱', farbe: '#047857' },
+      { name: 'Cashback', parentName: 'Sonstige Einnahmen', icon: '💰', farbe: '#065f46' },
 
-      // Einkaufen - Level 2
-      { name: 'Kleidung & Mode', parent: 'Einkaufen', icon: '👕', farbe: '#e53e3e' },
-      { name: 'Haushaltswaren', parent: 'Einkaufen', icon: '🧽', farbe: '#e53e3e' },
-      { name: 'Elektronik & Geräte', parent: 'Einkaufen', icon: '📱', farbe: '#e53e3e' },
-      { name: 'Sport & Freizeit', parent: 'Einkaufen', icon: '⚽', farbe: '#e53e3e' },
-      { name: 'Geschenke', parent: 'Einkaufen', icon: '🎁', farbe: '#e53e3e' },
-
-      // Wohnen - Level 2
-      { name: 'Miete & Nebenkosten', parent: 'Wohnen', icon: '🏠', farbe: '#dc2626' },
-      { name: 'Strom & Energie', parent: 'Wohnen', icon: '💡', farbe: '#dc2626' },
-      { name: 'Internet & Telefon', parent: 'Wohnen', icon: '🌐', farbe: '#dc2626' },
-      { name: 'Möbel & Einrichtung', parent: 'Wohnen', icon: '🛏️', farbe: '#dc2626' },
-      { name: 'Reparaturen & Wartung', parent: 'Wohnen', icon: '🔨', farbe: '#dc2626' },
-
-      // Transport - Level 2
-      { name: 'Öffentliche Verkehrsmittel', parent: 'Transport', icon: '🚇', farbe: '#b91c1c' },
-      { name: 'Taxi & Ridesharing', parent: 'Transport', icon: '🚕', farbe: '#b91c1c' },
-      { name: 'Fahrrad', parent: 'Transport', icon: '🚲', farbe: '#b91c1c' },
-      { name: 'Flug & Fernreisen', parent: 'Transport', icon: '✈️', farbe: '#b91c1c' },
-
-      // Fahrzeug - Level 2
-      { name: 'Kraftstoff', parent: 'Fahrzeug', icon: '⛽', farbe: '#991b1b' },
-      { name: 'Wartung & Reparatur', parent: 'Fahrzeug', icon: '🔧', farbe: '#991b1b' },
-      { name: 'Versicherung & Steuern', parent: 'Fahrzeug', icon: '🛡️', farbe: '#991b1b' },
-      { name: 'Parken & Maut', parent: 'Fahrzeug', icon: '🅿️', farbe: '#991b1b' },
-
-      // Kultur & Unterhaltung - Level 2
-      { name: 'Streaming & Abonnements', parent: 'Kultur & Unterhaltung', icon: '📺', farbe: '#7f1d1d' },
-      { name: 'Kino & Theater', parent: 'Kultur & Unterhaltung', icon: '🎬', farbe: '#7f1d1d' },
-      { name: 'Gaming', parent: 'Kultur & Unterhaltung', icon: '🎮', farbe: '#7f1d1d' },
-      { name: 'Bücher & Medien', parent: 'Kultur & Unterhaltung', icon: '📚', farbe: '#7f1d1d' },
-      { name: 'Events & Konzerte', parent: 'Kultur & Unterhaltung', icon: '🎪', farbe: '#7f1d1d' },
-
-      // Kommunikation & Technik - Level 2
-      { name: 'Mobilfunk', parent: 'Kommunikation & Technik', icon: '📱', farbe: '#ef4444' },
-      { name: 'Software & Apps', parent: 'Kommunikation & Technik', icon: '💿', farbe: '#ef4444' },
-      { name: 'Hardware', parent: 'Kommunikation & Technik', icon: '💻', farbe: '#ef4444' },
-      { name: 'Cloud & Storage', parent: 'Kommunikation & Technik', icon: '☁️', farbe: '#ef4444' },
-
-      // Finanzaufwand - Level 2
-      { name: 'Bankgebühren', parent: 'Finanzaufwand', icon: '🏦', farbe: '#fca5a5' },
-      { name: 'Versicherungen', parent: 'Finanzaufwand', icon: '🛡️', farbe: '#fca5a5' },
-      { name: 'Kredite & Zinsen', parent: 'Finanzaufwand', icon: '💳', farbe: '#fca5a5' },
-      { name: 'Steuern & Abgaben', parent: 'Finanzaufwand', icon: '🧾', farbe: '#fca5a5' },
-
-      // Investments - Level 2
-      { name: 'Aktien & ETFs', parent: 'Investments', icon: '📊', farbe: '#fecaca' },
-      { name: 'Kryptowährungen', parent: 'Investments', icon: '₿', farbe: '#fecaca' },
-      { name: 'Immobilien', parent: 'Investments', icon: '🏘️', farbe: '#fecaca' },
-      { name: 'Sparpläne', parent: 'Investments', icon: '💰', farbe: '#fecaca' },
-
-      // Sonstiges - Level 2
-      { name: 'Gesundheit & Medizin', parent: 'Sonstiges', icon: '⚕️', farbe: '#fee2e2' },
-      { name: 'Bildung & Weiterbildung', parent: 'Sonstiges', icon: '🎓', farbe: '#fee2e2' },
-      { name: 'Spenden & Unterstützung', parent: 'Sonstiges', icon: '💝', farbe: '#fee2e2' },
-      { name: 'Verschiedenes', parent: 'Sonstiges', icon: '❓', farbe: '#fee2e2' },
+      // Essen & Trinken subcategories
+      { name: 'Lebensmittel', parentName: 'Essen & Trinken', icon: '🛒', farbe: '#f44336' },
+      { name: 'Restaurant', parentName: 'Essen & Trinken', icon: '🍽️', farbe: '#ef4444' },
+      { name: 'Café & Bar', parentName: 'Essen & Trinken', icon: '☕', farbe: '#dc2626' },
+      { name: 'Lieferservice', parentName: 'Essen & Trinken', icon: '🥡', farbe: '#b91c1c' },
+      
+      // Einkaufen subcategories
+      { name: 'Kleidung', parentName: 'Einkaufen', icon: '👕', farbe: '#e53e3e' },
+      { name: 'Elektronik', parentName: 'Einkaufen', icon: '💻', farbe: '#dc2626' },
+      { name: 'Haushalt', parentName: 'Einkaufen', icon: '🏠', farbe: '#b91c1c' },
+      { name: 'Geschenke', parentName: 'Einkaufen', icon: '🎁', farbe: '#991b1b' },
+      { name: 'Bücher', parentName: 'Einkaufen', icon: '📚', farbe: '#7f1d1d' },
+      
+      // Wohnen subcategories
+      { name: 'Miete', parentName: 'Wohnen', icon: '🏠', farbe: '#dc2626' },
+      { name: 'Nebenkosten', parentName: 'Wohnen', icon: '⚡', farbe: '#b91c1c' },
+      { name: 'Internet & TV', parentName: 'Wohnen', icon: '📺', farbe: '#991b1b' },
+      { name: 'Möbel', parentName: 'Wohnen', icon: '🪑', farbe: '#7f1d1d' },
+      { name: 'Reparaturen', parentName: 'Wohnen', icon: '🔧', farbe: '#6b1d1d' },
+      
+      // Transport subcategories
+      { name: 'Öffentliche Verkehrsmittel', parentName: 'Transport', icon: '🚇', farbe: '#b91c1c' },
+      { name: 'Taxi & Rideshare', parentName: 'Transport', icon: '🚕', farbe: '#991b1b' },
+      { name: 'Flug & Bahn', parentName: 'Transport', icon: '✈️', farbe: '#7f1d1d' },
+      
+      // Fahrzeug subcategories
+      { name: 'Benzin', parentName: 'Fahrzeug', icon: '⛽', farbe: '#991b1b' },
+      { name: 'Wartung', parentName: 'Fahrzeug', icon: '🔧', farbe: '#7f1d1d' },
+      { name: 'Versicherung', parentName: 'Fahrzeug', icon: '🛡️', farbe: '#6b1d1d' },
+      { name: 'Parkgebühren', parentName: 'Fahrzeug', icon: '🅿️', farbe: '#5b1d1d' },
+      
+      // Kultur & Unterhaltung subcategories
+      { name: 'Streaming & Medien', parentName: 'Kultur & Unterhaltung', icon: '📺', farbe: '#7f1d1d' },
+      { name: 'Kino & Theater', parentName: 'Kultur & Unterhaltung', icon: '🎬', farbe: '#6b1d1d' },
+      { name: 'Sport & Fitness', parentName: 'Kultur & Unterhaltung', icon: '🏋️', farbe: '#5b1d1d' },
+      { name: 'Hobbys', parentName: 'Kultur & Unterhaltung', icon: '🎯', farbe: '#4b1d1d' },
+      { name: 'Ausgehen', parentName: 'Kultur & Unterhaltung', icon: '🍻', farbe: '#3b1d1d' },
+      
+      // Kommunikation & Technik subcategories
+      { name: 'Handy', parentName: 'Kommunikation & Technik', icon: '📱', farbe: '#ff9800' },
+      { name: 'Software', parentName: 'Kommunikation & Technik', icon: '💾', farbe: '#f57c00' },
+      { name: 'Hardware', parentName: 'Kommunikation & Technik', icon: '⌨️', farbe: '#ef6c00' },
+      
+      // Finanzaufwand subcategories
+      { name: 'Gebühren', parentName: 'Finanzaufwand', icon: '🏦', farbe: '#f57c00' },
+      { name: 'Steuern', parentName: 'Finanzaufwand', icon: '📊', farbe: '#ef6c00' },
+      { name: 'Versicherungen', parentName: 'Finanzaufwand', icon: '🛡️', farbe: '#e65100' },
+      
+      // Sonstiges subcategories
+      { name: 'Gesundheit', parentName: 'Sonstiges', icon: '⚕️', farbe: '#ef6c00' },
+      { name: 'Bildung', parentName: 'Sonstiges', icon: '🎓', farbe: '#e65100' },
+      { name: 'Spenden', parentName: 'Sonstiges', icon: '❤️', farbe: '#d84315' },
+      { name: 'Verschiedenes', parentName: 'Sonstiges', icon: '❓', farbe: '#bf360c' },
     ];
 
-    console.log('Adding subcategories (Level 2)...');
-    const subcategoryMap = new Map();
-
-    for (const subcat of subcategories) {
-      // Add to both income and expense
-      for (const typ of ['einnahme', 'ausgabe']) {
-        const parentId = categoryMap.get(`${subcat.parent}_${typ}`);
-        if (parentId) {
-          try {
-            const { rows } = await sql`
-              INSERT INTO kategorien (name, typ, icon, farbe, level, parent_id)
-              VALUES (${subcat.name}, ${typ}, ${subcat.icon}, ${subcat.farbe}, 2, ${parentId})
-              RETURNING id, name, typ
-            `;
-            subcategoryMap.set(`${subcat.name}_${typ}`, rows[0].id);
-            console.log(`✅ Added Level 2: ${subcat.name} (${typ}) under ${subcat.parent} - ID: ${rows[0].id}`);
-          } catch (error) {
-            console.log(`⚠️ Subcategory ${subcat.name} (${typ}) might already exist`);
-          }
+    const insertedLevel2 = [];
+    for (const category of level2Categories) {
+      try {
+        // Find parent category ID
+        const parent = insertedLevel1.find(p => p.originalName === category.parentName);
+        if (parent) {
+          const { rows } = await sql`
+            INSERT INTO kategorien (name, typ, icon, farbe, level, parent_id)
+            VALUES (${category.name}, ${parent.typ}, ${category.icon}, ${category.farbe}, 2, ${parent.id})
+            RETURNING id, name, typ
+          `;
+          insertedLevel2.push({ ...rows[0], originalName: category.name, parentOriginalName: category.parentName });
+          console.log(`✅ Inserted Level 2 category: ${category.name} under ${category.parentName} (ID: ${rows[0].id})`);
+        } else {
+          console.log(`⚠️ Parent category ${category.parentName} not found for ${category.name}`);
         }
+      } catch (categoryError) {
+        console.error(`❌ Error with Level 2 category ${category.name}:`, categoryError);
       }
     }
 
-    // Level 3: Sub-subcategories
-    const subSubcategories = [
-      // Restaurant & Gastronomie - Level 3
-      { name: 'Fast Food', parent: 'Restaurant & Gastronomie', icon: '🍟', farbe: '#f44336' },
-      { name: 'Fine Dining', parent: 'Restaurant & Gastronomie', icon: '🍷', farbe: '#f44336' },
-      { name: 'Café & Bäckerei', parent: 'Restaurant & Gastronomie', icon: '☕', farbe: '#f44336' },
-      { name: 'Lieferdienst', parent: 'Restaurant & Gastronomie', icon: '🥡', farbe: '#f44336' },
-
-      // Lebensmittel Einkauf - Level 3
-      { name: 'Supermarkt', parent: 'Lebensmittel Einkauf', icon: '🏪', farbe: '#f44336' },
-      { name: 'Bio-Markt', parent: 'Lebensmittel Einkauf', icon: '🌱', farbe: '#f44336' },
-      { name: 'Wochenmarkt', parent: 'Lebensmittel Einkauf', icon: '🥕', farbe: '#f44336' },
-      { name: 'Online-Lieferung', parent: 'Lebensmittel Einkauf', icon: '📦', farbe: '#f44336' },
-
-      // Kleidung & Mode - Level 3
-      { name: 'Arbeitskleidung', parent: 'Kleidung & Mode', icon: '👔', farbe: '#e53e3e' },
-      { name: 'Freizeitkleidung', parent: 'Kleidung & Mode', icon: '👕', farbe: '#e53e3e' },
-      { name: 'Schuhe', parent: 'Kleidung & Mode', icon: '👟', farbe: '#e53e3e' },
-      { name: 'Accessoires', parent: 'Kleidung & Mode', icon: '👒', farbe: '#e53e3e' },
-
-      // Streaming & Abonnements - Level 3
-      { name: 'Netflix', parent: 'Streaming & Abonnements', icon: '📺', farbe: '#7f1d1d' },
-      { name: 'Spotify', parent: 'Streaming & Abonnements', icon: '🎵', farbe: '#7f1d1d' },
-      { name: 'YouTube Premium', parent: 'Streaming & Abonnements', icon: '📱', farbe: '#7f1d1d' },
-      { name: 'Amazon Prime', parent: 'Streaming & Abonnements', icon: '📦', farbe: '#7f1d1d' },
-
-      // Gaming - Level 3
-      { name: 'PlayStation', parent: 'Gaming', icon: '🎮', farbe: '#7f1d1d' },
-      { name: 'Steam', parent: 'Gaming', icon: '💻', farbe: '#7f1d1d' },
-      { name: 'Mobile Games', parent: 'Gaming', icon: '📱', farbe: '#7f1d1d' },
-      { name: 'Nintendo', parent: 'Gaming', icon: '🎮', farbe: '#7f1d1d' },
-
-      // Öffentliche Verkehrsmittel - Level 3
-      { name: 'Monatskarte', parent: 'Öffentliche Verkehrsmittel', icon: '🎫', farbe: '#b91c1c' },
-      { name: 'Einzelfahrt', parent: 'Öffentliche Verkehrsmittel', icon: '🎟️', farbe: '#b91c1c' },
-      { name: 'Fernverkehr', parent: 'Öffentliche Verkehrsmittel', icon: '🚆', farbe: '#b91c1c' },
-
-      // Kraftstoff - Level 3
-      { name: 'Super', parent: 'Kraftstoff', icon: '⛽', farbe: '#991b1b' },
-      { name: 'Diesel', parent: 'Kraftstoff', icon: '⛽', farbe: '#991b1b' },
-      { name: 'Elektro', parent: 'Kraftstoff', icon: '🔌', farbe: '#991b1b' },
-
-      // Versicherungen - Level 3
-      { name: 'Krankenversicherung', parent: 'Versicherungen', icon: '🏥', farbe: '#fca5a5' },
-      { name: 'Autoversicherung', parent: 'Versicherungen', icon: '🚗', farbe: '#fca5a5' },
-      { name: 'Hausratversicherung', parent: 'Versicherungen', icon: '🏠', farbe: '#fca5a5' },
-      { name: 'Berufsunfähigkeit', parent: 'Versicherungen', icon: '🛡️', farbe: '#fca5a5' },
+    // Add Level 3 categories (detailed subcategories)
+    console.log('Adding Level 3 categories...');
+    const level3Categories = [
+      // Lebensmittel subcategories
+      { name: 'Supermarkt', parentName: 'Lebensmittel', icon: '🏪', farbe: '#f44336' },
+      { name: 'Bio-Markt', parentName: 'Lebensmittel', icon: '🥬', farbe: '#f44336' },
+      { name: 'Bäckerei', parentName: 'Lebensmittel', icon: '🥖', farbe: '#f44336' },
+      { name: 'Metzgerei', parentName: 'Lebensmittel', icon: '🥩', farbe: '#f44336' },
+      
+      // Restaurant subcategories
+      { name: 'Fast Food', parentName: 'Restaurant', icon: '🍔', farbe: '#ef4444' },
+      { name: 'Fine Dining', parentName: 'Restaurant', icon: '🍷', farbe: '#ef4444' },
+      { name: 'Asiatisch', parentName: 'Restaurant', icon: '🍜', farbe: '#ef4444' },
+      { name: 'Italienisch', parentName: 'Restaurant', icon: '🍝', farbe: '#ef4444' },
+      { name: 'Kantinen', parentName: 'Restaurant', icon: '🥪', farbe: '#ef4444' },
+      
+      // Café & Bar subcategories
+      { name: 'Café', parentName: 'Café & Bar', icon: '☕', farbe: '#dc2626' },
+      { name: 'Bar', parentName: 'Café & Bar', icon: '🍺', farbe: '#dc2626' },
+      { name: 'Cocktailbar', parentName: 'Café & Bar', icon: '🍸', farbe: '#dc2626' },
+      
+      // Kleidung subcategories
+      { name: 'Arbeitskleidung', parentName: 'Kleidung', icon: '👔', farbe: '#e53e3e' },
+      { name: 'Freizeitkleidung', parentName: 'Kleidung', icon: '👕', farbe: '#e53e3e' },
+      { name: 'Schuhe', parentName: 'Kleidung', icon: '👟', farbe: '#e53e3e' },
+      { name: 'Unterwäsche', parentName: 'Kleidung', icon: '🩲', farbe: '#e53e3e' },
+      { name: 'Schmuck', parentName: 'Kleidung', icon: '💎', farbe: '#e53e3e' },
+      
+      // Elektronik subcategories
+      { name: 'Smartphone', parentName: 'Elektronik', icon: '📱', farbe: '#dc2626' },
+      { name: 'Computer', parentName: 'Elektronik', icon: '💻', farbe: '#dc2626' },
+      { name: 'Gaming', parentName: 'Elektronik', icon: '🎮', farbe: '#dc2626' },
+      { name: 'Audio', parentName: 'Elektronik', icon: '🎧', farbe: '#dc2626' },
+      { name: 'TV & Video', parentName: 'Elektronik', icon: '📺', farbe: '#dc2626' },
+      
+      // Haushalt subcategories
+      { name: 'Küchengeräte', parentName: 'Haushalt', icon: '🍽️', farbe: '#b91c1c' },
+      { name: 'Reinigung', parentName: 'Haushalt', icon: '🧽', farbe: '#b91c1c' },
+      { name: 'Deko', parentName: 'Haushalt', icon: '🕯️', farbe: '#b91c1c' },
+      { name: 'Werkzeuge', parentName: 'Haushalt', icon: '🔨', farbe: '#b91c1c' },
+      
+      // Gehalt subcategories
+      { name: 'Grundgehalt', parentName: 'Gehalt', icon: '💼', farbe: '#22c55e' },
+      { name: 'Bonus', parentName: 'Gehalt', icon: '🎯', farbe: '#22c55e' },
+      { name: 'Überstunden', parentName: 'Gehalt', icon: '⏰', farbe: '#22c55e' },
+      { name: '13. Gehalt', parentName: 'Gehalt', icon: '🎊', farbe: '#22c55e' },
+      
+      // Sport & Fitness subcategories
+      { name: 'Fitnessstudio', parentName: 'Sport & Fitness', icon: '🏋️', farbe: '#5b1d1d' },
+      { name: 'Sportausrüstung', parentName: 'Sport & Fitness', icon: '⚽', farbe: '#5b1d1d' },
+      { name: 'Kurse', parentName: 'Sport & Fitness', icon: '🧘', farbe: '#5b1d1d' },
+      
+      // Gesundheit subcategories
+      { name: 'Arzt', parentName: 'Gesundheit', icon: '👨‍⚕️', farbe: '#ef6c00' },
+      { name: 'Medikamente', parentName: 'Gesundheit', icon: '💊', farbe: '#ef6c00' },
+      { name: 'Zahnarzt', parentName: 'Gesundheit', icon: '🦷', farbe: '#ef6c00' },
+      { name: 'Wellness', parentName: 'Gesundheit', icon: '💆', farbe: '#ef6c00' },
     ];
 
-    console.log('Adding sub-subcategories (Level 3)...');
-    let level3Count = 0;
-
-    for (const subSubcat of subSubcategories) {
-      // Add to both income and expense
-      for (const typ of ['einnahme', 'ausgabe']) {
-        const parentId = subcategoryMap.get(`${subSubcat.parent}_${typ}`);
-        if (parentId) {
-          try {
-            const { rows } = await sql`
-              INSERT INTO kategorien (name, typ, icon, farbe, level, parent_id)
-              VALUES (${subSubcat.name}, ${typ}, ${subSubcat.icon}, ${subSubcat.farbe}, 3, ${parentId})
-              RETURNING id, name
-            `;
-            level3Count++;
-            console.log(`✅ Added Level 3: ${subSubcat.name} (${typ}) under ${subSubcat.parent} - ID: ${rows[0].id}`);
-          } catch (error) {
-            console.log(`⚠️ Sub-subcategory ${subSubcat.name} (${typ}) might already exist`);
-          }
+    const insertedLevel3 = [];
+    for (const category of level3Categories) {
+      try {
+        // Find parent category ID
+        const parent = insertedLevel2.find(p => p.originalName === category.parentName);
+        if (parent) {
+          const { rows } = await sql`
+            INSERT INTO kategorien (name, typ, icon, farbe, level, parent_id)
+            VALUES (${category.name}, ${parent.typ}, ${category.icon}, ${category.farbe}, 3, ${parent.id})
+            RETURNING id, name
+          `;
+          insertedLevel3.push(rows[0]);
+          console.log(`✅ Inserted Level 3 category: ${category.name} under ${category.parentName} (ID: ${rows[0].id})`);
+        } else {
+          console.log(`⚠️ Parent category ${category.parentName} not found for ${category.name}`);
         }
+      } catch (categoryError) {
+        console.error(`❌ Error with Level 3 category ${category.name}:`, categoryError);
       }
     }
 
@@ -378,8 +381,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (parseInt(existingAccounts[0].count) === 0) {
         const defaultAccounts = [
           { name: 'Girokonto', typ: 'Girokonto', farbe: '#36a2eb' },
-          { name: 'Sparkonto', typ: 'Sparkonto', farbe: '#22c55e' },
-          { name: 'Kreditkarte', typ: 'Kreditkarte', farbe: '#f44336' },
+          { name: 'Sparkonto', typ: 'Sparkonto', farbe: '#4bc0c0' },
+          { name: 'Bargeld', typ: 'Bargeld', farbe: '#ff6384' },
         ];
 
         for (const account of defaultAccounts) {
@@ -387,20 +390,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             INSERT INTO konten (name, typ, saldo, farbe)
             VALUES (${account.name}, ${account.typ}, 0, ${account.farbe})
           `;
-          console.log(`✅ Added account: ${account.name}`);
         }
+        console.log('✅ Default accounts created');
+      } else {
+        console.log('⚠️ Accounts already exist, skipping default account creation');
       }
     } catch (accountError) {
       console.log('⚠️ Error creating default accounts:', accountError);
     }
 
     // Final verification
-    const { rows: finalStats } = await sql`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(CASE WHEN level = 1 THEN 1 END) as level_1,
-        COUNT(CASE WHEN level = 2 THEN 1 END) as level_2,
-        COUNT(CASE WHEN level = 3 THEN 1 END) as level_3
+    const { rows: finalCategories } = await sql`
+      SELECT COUNT(*) as total, 
+             COUNT(CASE WHEN level = 1 THEN 1 END) as level1,
+             COUNT(CASE WHEN level = 2 THEN 1 END) as level2,
+             COUNT(CASE WHEN level = 3 THEN 1 END) as level3
       FROM kategorien
     `;
 
@@ -408,24 +412,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       SELECT COUNT(*) as count FROM konten
     `;
 
-    console.log('3-Level category setup completed successfully!');
+    console.log('Setup completed successfully!');
 
     res.status(200).json({ 
       success: true, 
-      message: '3-Level category system and transfer support setup completed!',
+      message: 'Database setup completed successfully with 3-level categories!',
       stats: {
-        total_categories: parseInt(finalStats[0].total),
-        level_1_categories: parseInt(finalStats[0].level_1),
-        level_2_categories: parseInt(finalStats[0].level_2),
-        level_3_categories: parseInt(finalStats[0].level_3),
+        total_categories: parseInt(finalCategories[0].total),
+        level1_categories: parseInt(finalCategories[0].level1),
+        level2_categories: parseInt(finalCategories[0].level2),
+        level3_categories: parseInt(finalCategories[0].level3),
         accounts: parseInt(finalAccounts[0].count)
-      },
-      features: [
-        '✅ 3-Level category hierarchy',
-        '✅ Transfer support between accounts',
-        '✅ Enhanced transaction tracking',
-        '✅ Comprehensive category structure'
-      ]
+      }
     });
 
   } catch (error) {

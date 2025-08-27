@@ -1,132 +1,152 @@
-// Enhanced Kategorien API with 3-Level Support
+// Enhanced Categories API with 3-level support
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sql } from '@vercel/postgres';
 
-// Helper function to build category hierarchy tree
-function buildCategoryTree(categories: any[]) {
-  const categoryMap = new Map();
-  const rootCategories: any[] = [];
-
-  // First pass: create map of all categories
-  categories.forEach(cat => {
-    categoryMap.set(cat.id, { ...cat, children: [] });
-  });
-
-  // Second pass: build tree structure
-  categories.forEach(cat => {
-    const categoryWithChildren = categoryMap.get(cat.id);
-    
-    if (cat.parent_id === null) {
-      // Root level category (Level 1)
-      rootCategories.push(categoryWithChildren);
-    } else {
-      // Child category - add to parent's children
-      const parent = categoryMap.get(cat.parent_id);
-      if (parent) {
-        parent.children.push(categoryWithChildren);
-      }
-    }
-  });
-
-  return rootCategories;
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === 'GET') {
-      const { typ, tree = 'false', level, parent_id } = req.query;
+      const { typ, level, parent_id, hierarchical } = req.query;
       
-      let query = `
-        SELECT k.*, p.name as parent_name, p.level as parent_level
-        FROM kategorien k 
-        LEFT JOIN kategorien p ON k.parent_id = p.id 
-        WHERE 1=1
-      `;
-      const params: any[] = [];
-      
-      if (typ) {
-        query += ` AND k.typ = $${params.length + 1}`;
-        params.push(typ);
-      }
-      
-      if (level) {
-        query += ` AND k.level = $${params.length + 1}`;
-        params.push(level);
-      }
-      
-      if (parent_id) {
-        query += ` AND k.parent_id = $${params.length + 1}`;
-        params.push(parent_id);
-      }
-      
-      query += ` ORDER BY k.level, COALESCE(p.name, k.name), k.parent_id NULLS FIRST, k.name`;
-      
-      const { rows } = await sql.query(query, params);
-      
-      if (tree === 'true') {
-        // Return hierarchical tree structure
-        const categoryTree = buildCategoryTree(rows);
-        res.status(200).json(categoryTree);
+      let rows;
+      if (hierarchical === 'true') {
+        // Return hierarchical structure
+        const result = await sql`
+          WITH RECURSIVE category_tree AS (
+            -- Level 1 categories (root)
+            SELECT id, name, typ, farbe, icon, level, parent_id, 
+                   name as full_path,
+                   ARRAY[id] as path_ids
+            FROM kategorien 
+            WHERE parent_id IS NULL
+            
+            UNION ALL
+            
+            -- Recursive part: children
+            SELECT k.id, k.name, k.typ, k.farbe, k.icon, k.level, k.parent_id,
+                   ct.full_path || ' > ' || k.name as full_path,
+                   ct.path_ids || k.id as path_ids
+            FROM kategorien k
+            INNER JOIN category_tree ct ON k.parent_id = ct.id
+          )
+          SELECT * FROM category_tree
+          ${typ ? sql`WHERE typ = ${typ as string}` : sql``}
+          ORDER BY path_ids
+        `;
+        rows = result.rows;
+      } else if (level) {
+        // Filter by level
+        const result = await sql`
+          SELECT k.*, 
+                 p1.name as parent_name,
+                 p2.name as grandparent_name
+          FROM kategorien k 
+          LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+          LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+          WHERE k.level = ${parseInt(level as string)}
+          ${typ ? sql`AND k.typ = ${typ as string}` : sql``}
+          ${parent_id ? sql`AND k.parent_id = ${parseInt(parent_id as string)}` : sql``}
+          ORDER BY p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+        `;
+        rows = result.rows;
+      } else if (parent_id) {
+        // Get children of specific parent
+        const result = await sql`
+          SELECT k.*, 
+                 p1.name as parent_name,
+                 p2.name as grandparent_name
+          FROM kategorien k 
+          LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+          LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+          WHERE k.parent_id = ${parseInt(parent_id as string)}
+          ${typ ? sql`AND k.typ = ${typ as string}` : sql``}
+          ORDER BY k.name
+        `;
+        rows = result.rows;
       } else {
-        // Return flat list
-        res.status(200).json(rows);
+        // Get all categories with parent info
+        let query;
+        if (typ) {
+          query = sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.typ = ${typ as string}
+            ORDER BY k.level, p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+          `;
+        } else {
+          query = sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            ORDER BY k.level, p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+          `;
+        }
+        const result = await query;
+        rows = result.rows;
       }
+        
+      res.status(200).json(rows);
     } 
     else if (req.method === 'POST') {
-      const { name, typ, farbe, icon, parent_id, level = 1 } = req.body;
+      const { name, typ, farbe, icon, parent_id, level } = req.body;
       
       if (!name || !typ) {
         return res.status(400).json({ error: 'Name and type are required' });
       }
-      
-      // Validate level based on parent
+
+      // Determine level based on parent
+      let categoryLevel = 1;
       if (parent_id) {
         const { rows: parentRows } = await sql`
           SELECT level FROM kategorien WHERE id = ${parent_id}
         `;
-        
-        if (parentRows.length === 0) {
-          return res.status(400).json({ error: 'Parent category not found' });
-        }
-        
-        const expectedLevel = parentRows[0].level + 1;
-        if (level !== expectedLevel) {
-          return res.status(400).json({ 
-            error: `Invalid level. Expected level ${expectedLevel} for this parent.` 
-          });
+        if (parentRows.length > 0) {
+          categoryLevel = parentRows[0].level + 1;
+          if (categoryLevel > 3) {
+            return res.status(400).json({ error: 'Maximum 3 levels allowed' });
+          }
         }
       }
       
       const { rows } = await sql`
         INSERT INTO kategorien (name, typ, farbe, icon, parent_id, level)
-        VALUES (${name}, ${typ}, ${farbe || '#36a2eb'}, ${icon || '💰'}, ${parent_id || null}, ${level})
+        VALUES (${name}, ${typ}, ${farbe || '#36a2eb'}, ${icon || '💰'}, ${parent_id || null}, ${categoryLevel})
         RETURNING *
       `;
       res.status(201).json(rows[0]);
     } 
     else if (req.method === 'PUT') {
-      const { id, name, typ, farbe, icon, parent_id, level } = req.body;
+      const { id, name, typ, farbe, icon, parent_id } = req.body;
       
       if (!id || !name || !typ) {
         return res.status(400).json({ error: 'ID, name and type are required' });
       }
-      
-      // Check if category has children when trying to change it
-      const { rows: childrenCheck } = await sql`
-        SELECT COUNT(*) as count FROM kategorien WHERE parent_id = ${id}
-      `;
-      
-      if (parseInt(childrenCheck[0].count) > 0 && parent_id !== null) {
-        return res.status(400).json({ 
-          error: 'Cannot move category that has subcategories' 
-        });
+
+      // Determine new level based on parent
+      let newLevel = 1;
+      if (parent_id) {
+        const { rows: parentRows } = await sql`
+          SELECT level FROM kategorien WHERE id = ${parent_id}
+        `;
+        if (parentRows.length > 0) {
+          newLevel = parentRows[0].level + 1;
+          if (newLevel > 3) {
+            return res.status(400).json({ error: 'Maximum 3 levels allowed' });
+          }
+        }
       }
       
       const { rows } = await sql`
         UPDATE kategorien 
         SET name = ${name}, typ = ${typ}, farbe = ${farbe}, icon = ${icon}, 
-            parent_id = ${parent_id || null}, level = ${level || 1}
+            parent_id = ${parent_id || null}, level = ${newLevel}
         WHERE id = ${id}
         RETURNING *
       `;
