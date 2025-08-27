@@ -175,7 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { rows: summary } = await sql.query(summaryQuery, params);
       
       // Budget status (only for overall analysis, not account-specific)
-      let budgetStatus = [{ gesamt_budgets: 0, ueberschrittene_budgets: 0 }];
+      let budgetStatus = { gesamt_budgets: 0, ueberschrittene_budgets: 0 };
       
       if (!konto_id) {
         const { rows } = await sql`
@@ -195,12 +195,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ) ausgegeben ON b.kategorie_id = ausgegeben.kategorie_id
           WHERE b.monat = DATE_TRUNC('month', CURRENT_DATE)
         `;
-        budgetStatus = rows;
+        budgetStatus = rows[0] || { gesamt_budgets: 0, ueberschrittene_budgets: 0 };
       }
       
       res.status(200).json({
         ...summary[0],
-        ...budgetStatus[0]
+        ...budgetStatus
       });
       
     } else if (type === 'transfers') {
