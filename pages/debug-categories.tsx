@@ -221,7 +221,7 @@ export default function CategoryDebugPage() {
         <button 
           onClick={setupDatabase} 
           style={buttonStyle}
-          disabled={setupLoading || (dbCheckResult && !dbCheckResult.success)}
+          disabled={setupLoading || (dbCheckResult ? !dbCheckResult.success : false)}
         >
           {setupLoading ? '⚙️ Setting up...' : '🔧 Run Database Setup'}
         </button>
