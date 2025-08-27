@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       tableInfo['kategorien_has_parent_id'] = columns.some(col => col.column_name === 'parent_id');
 
     } catch (e) {
-      error = e.message;
+      error = e instanceof Error ? e.message : 'Unknown error';
     }
 
     res.status(200).json({
