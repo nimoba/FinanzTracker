@@ -41,13 +41,30 @@ export default function Dashboard() {
         fetch('/api/finanzen/transaktionen?limit=10')
       ]);
 
-      const summaryData = await summaryResponse.json();
-      const transactionsData = await transactionsResponse.json();
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json();
+        setSummary(summaryData);
+      } else {
+        console.error('Summary API Error:', summaryResponse.status);
+        setSummary(null);
+      }
 
-      setSummary(summaryData);
-      setTransactions(transactionsData);
+      if (transactionsResponse.ok) {
+        const transactionsData = await transactionsResponse.json();
+        if (Array.isArray(transactionsData)) {
+          setTransactions(transactionsData);
+        } else {
+          console.error('Invalid transactions data format:', transactionsData);
+          setTransactions([]);
+        }
+      } else {
+        console.error('Transactions API Error:', transactionsResponse.status);
+        setTransactions([]);
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setSummary(null);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }

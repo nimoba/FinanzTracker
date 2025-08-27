@@ -24,10 +24,22 @@ export default function AccountsPage() {
   const loadAccounts = async () => {
     try {
       const response = await fetch('/api/finanzen/konten');
-      const data = await response.json();
-      setAccounts(data);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setAccounts(data);
+        } else {
+          console.error('Invalid accounts data format:', data);
+          setAccounts([]);
+        }
+      } else {
+        console.error('Accounts API Error:', response.status);
+        setAccounts([]);
+      }
     } catch (error) {
       console.error('Error loading accounts:', error);
+      setAccounts([]);
     } finally {
       setLoading(false);
     }
@@ -188,7 +200,7 @@ export default function AccountsPage() {
     zIndex: 99,
   };
 
-  const totalBalance = accounts.reduce((sum, account) => sum + account.saldo, 0);
+  const totalBalance = accounts && accounts.length > 0 ? accounts.reduce((sum, account) => sum + account.saldo, 0) : 0;
 
   if (loading) {
     return (

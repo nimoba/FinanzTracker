@@ -57,12 +57,37 @@ export default function TransactionsPage() {
         fetch('/api/finanzen/kategorien')
       ]);
 
-      setAccounts(await accountsRes.json());
-      setCategories(await categoriesRes.json());
+      if (accountsRes.ok) {
+        const accountsData = await accountsRes.json();
+        if (Array.isArray(accountsData)) {
+          setAccounts(accountsData);
+        } else {
+          console.error('Invalid accounts data format:', accountsData);
+          setAccounts([]);
+        }
+      } else {
+        console.error('Accounts API Error:', accountsRes.status);
+        setAccounts([]);
+      }
+
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json();
+        if (Array.isArray(categoriesData)) {
+          setCategories(categoriesData);
+        } else {
+          console.error('Invalid categories data format:', categoriesData);
+          setCategories([]);
+        }
+      } else {
+        console.error('Categories API Error:', categoriesRes.status);
+        setCategories([]);
+      }
       
       await loadTransactions();
     } catch (error) {
       console.error('Error loading data:', error);
+      setAccounts([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -76,10 +101,22 @@ export default function TransactionsPage() {
       });
 
       const response = await fetch(`/api/finanzen/transaktionen?${params}`);
-      const data = await response.json();
-      setTransactions(data);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setTransactions(data);
+        } else {
+          console.error('Invalid transactions data format:', data);
+          setTransactions([]);
+        }
+      } else {
+        console.error('Transactions API Error:', response.status);
+        setTransactions([]);
+      }
     } catch (error) {
       console.error('Error loading transactions:', error);
+      setTransactions([]);
     }
   };
 
