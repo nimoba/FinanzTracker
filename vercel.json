@@ -1,6 +1,0 @@
-{
-  "buildCommand": "cd financeflow && npm run build",
-  "outputDirectory": "financeflow/.next",
-  "installCommand": "cd financeflow && npm install",
-  "framework": "nextjs"
-}
