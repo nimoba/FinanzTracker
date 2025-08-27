@@ -6,13 +6,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'GET') {
       const { limit = '50', offset = '0', konto_id, kategorie_id, typ, from, to } = req.query;
       
+      const { exclude_transfers = 'false' } = req.query;
+      
       let query = `
-        SELECT t.*, k.name as konto_name, kat.name as kategorie_name, kat.icon as kategorie_icon
+        SELECT t.*, k.name as konto_name, kat.name as kategorie_name, kat.icon as kategorie_icon,
+               CASE WHEN t.typ IN ('transfer_in', 'transfer_out') THEN true ELSE false END as is_transfer
         FROM transaktionen t
         LEFT JOIN konten k ON t.konto_id = k.id
         LEFT JOIN kategorien kat ON t.kategorie_id = kat.id
         WHERE 1=1
       `;
+      
+      // Exclude transfers from overall analysis if requested
+      if (exclude_transfers === 'true') {
+        query += ` AND t.typ NOT IN ('transfer_in', 'transfer_out')`;
+      }
       
       const params: any[] = [];
       

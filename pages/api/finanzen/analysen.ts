@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { type, from, to } = req.query;
 
     if (type === 'overview') {
-      // Monthly income vs expenses for the last 12 months
+      // Monthly income vs expenses for the last 12 months (excluding transfers)
       const { rows } = await sql`
         SELECT 
           DATE_TRUNC('month', datum) as monat,
@@ -18,6 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           SUM(CASE WHEN typ = 'ausgabe' THEN betrag ELSE 0 END) as ausgaben
         FROM transaktionen 
         WHERE datum >= CURRENT_DATE - INTERVAL '12 months'
+          AND typ NOT IN ('transfer_in', 'transfer_out')
         GROUP BY DATE_TRUNC('month', datum)
         ORDER BY monat
       `;
@@ -37,12 +38,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         FROM transaktionen t
         JOIN kategorien k ON t.kategorie_id = k.id
         WHERE t.datum >= ${fromDate} AND t.datum <= ${toDate}
+          AND t.typ NOT IN ('transfer_in', 'transfer_out')
         GROUP BY k.id, k.name, k.icon, k.farbe
         ORDER BY betrag DESC
       `;
       res.status(200).json(rows);
     } else if (type === 'trends') {
-      // Daily spending trends for the last 30 days
+      // Daily spending trends for the last 30 days (excluding transfers)
       const { rows } = await sql`
         SELECT 
           datum,
@@ -50,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           SUM(CASE WHEN typ = 'ausgabe' THEN betrag ELSE 0 END) as ausgaben
         FROM transaktionen 
         WHERE datum >= CURRENT_DATE - INTERVAL '30 days'
+          AND typ NOT IN ('transfer_in', 'transfer_out')
         GROUP BY datum
         ORDER BY datum
       `;
@@ -59,8 +62,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { rows: summary } = await sql`
         SELECT 
           (SELECT SUM(saldo) FROM konten) as gesamtsaldo,
-          (SELECT SUM(betrag) FROM transaktionen WHERE typ = 'einnahme' AND DATE_TRUNC('month', datum) = DATE_TRUNC('month', CURRENT_DATE)) as monatliche_einnahmen,
-          (SELECT SUM(betrag) FROM transaktionen WHERE typ = 'ausgabe' AND DATE_TRUNC('month', datum) = DATE_TRUNC('month', CURRENT_DATE)) as monatliche_ausgaben
+          (SELECT SUM(betrag) FROM transaktionen WHERE typ = 'einnahme' AND DATE_TRUNC('month', datum) = DATE_TRUNC('month', CURRENT_DATE) AND typ NOT IN ('transfer_in', 'transfer_out')) as monatliche_einnahmen,
+          (SELECT SUM(betrag) FROM transaktionen WHERE typ = 'ausgabe' AND DATE_TRUNC('month', datum) = DATE_TRUNC('month', CURRENT_DATE) AND typ NOT IN ('transfer_in', 'transfer_out')) as monatliche_ausgaben
       `;
       
       const { rows: budgetStatus } = await sql`
@@ -75,6 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           FROM transaktionen 
           WHERE typ = 'ausgabe' 
             AND DATE_TRUNC('month', datum) = DATE_TRUNC('month', CURRENT_DATE)
+            AND typ NOT IN ('transfer_in', 'transfer_out')
           GROUP BY kategorie_id
         ) ausgegeben ON b.kategorie_id = ausgegeben.kategorie_id
         WHERE b.monat = DATE_TRUNC('month', CURRENT_DATE)

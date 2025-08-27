@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanztracker Setup - 3-Level Categories & Transfers</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1e293b;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .step {
+            margin-bottom: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        .step h3 {
+            margin: 0 0 10px 0;
+            color: #374151;
+        }
+        .step p {
+            margin: 0 0 15px 0;
+            color: #6b7280;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .success {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+        .error {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+        .loading {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .result.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .result.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">🚀 Finanztracker Setup</h1>
+    
+    <div class="warning">
+        <strong>⚠️ Achtung:</strong> Die 3-Level Kategorie-Migration wird alle bestehenden Kategorien löschen und durch die neue Struktur ersetzen. Bestehende Transaktionen bleiben erhalten, verlieren aber ihre Kategorie-Zuordnungen.
+    </div>
+
+    <div class="card">
+        <div class="step" id="step1">
+            <h3>📊 Schritt 1: 3-Level Kategorien einrichten</h3>
+            <p>Erstellt die neue 3-stufige Kategoriestruktur mit deinen gewünschten Hauptkategorien.</p>
+            <button onclick="runMigration('3levels')" id="btn-3levels">3-Level Kategorien einrichten</button>
+            <div id="result-3levels" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step" id="step2">
+            <h3>💸 Schritt 2: Transfer-Funktionalität aktivieren</h3>
+            <p>Fügt die Möglichkeit hinzu, Geld zwischen Konten zu transferieren.</p>
+            <button onclick="runMigration('transfers')" id="btn-transfers">Transfer-Funktionalität aktivieren</button>
+            <div id="result-transfers" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Neue Funktionen</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h4>🗂️ 3-Level Kategorien</h4>
+                <ul>
+                    <li><strong>Level 1:</strong> Essen & Trinken, Wohnen, etc.</li>
+                    <li><strong>Level 2:</strong> Restaurants, Lebensmittel, etc.</li>
+                    <li><strong>Level 3:</strong> Fast Food, Supermarkt, etc.</li>
+                </ul>
+            </div>
+            <div>
+                <h4>🔄 Account Transfers</h4>
+                <ul>
+                    <li>Geld zwischen Konten übertragen</li>
+                    <li>Automatische Balance-Anpassung</li>
+                    <li>Keine Auswirkung auf Gesamtanalyse</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function runMigration(type) {
+            const stepId = type === '3levels' ? 'step1' : 'step2';
+            const btnId = `btn-${type}`;
+            const resultId = `result-${type}`;
+            const endpoint = type === '3levels' ? '/api/finanzen/migrate-3levels' : '/api/finanzen/migrate-transfers';
+            
+            const step = document.getElementById(stepId);
+            const btn = document.getElementById(btnId);
+            const result = document.getElementById(resultId);
+            
+            // Reset states
+            step.className = 'step loading';
+            btn.disabled = true;
+            btn.textContent = 'Wird ausgeführt...';
+            result.style.display = 'none';
+            
+            try {
+                console.log(`Starting ${type} migration...`);
+                const response = await fetch(endpoint, { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                console.log(`${type} migration result:`, data);
+                
+                if (response.ok && data.success) {
+                    step.className = 'step success';
+                    result.className = 'result success';
+                    result.textContent = `✅ ${data.message}`;
+                    if (data.stats) {
+                        result.textContent += ` (${JSON.stringify(data.stats)})`;
+                    }
+                    btn.textContent = 'Abgeschlossen ✓';
+                } else {
+                    throw new Error(data.error || data.details || 'Unknown error');
+                }
+            } catch (error) {
+                console.error(`${type} migration error:`, error);
+                step.className = 'step error';
+                result.className = 'result error';
+                result.textContent = `❌ Fehler: ${error.message}`;
+                btn.textContent = 'Fehler - Erneut versuchen';
+                btn.disabled = false;
+            }
+            
+            result.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

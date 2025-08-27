@@ -1,36 +1,92 @@
-// Fixed Kategorien API - resolves 500 errors
+// Enhanced Kategorien API - supports 3-level hierarchy and tree structure
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sql } from '@vercel/postgres';
 
+// Helper function to build category tree
+function buildCategoryTree(categories: any[]) {
+  const categoryMap = new Map();
+  const rootCategories: any[] = [];
+
+  // First pass: create map of all categories
+  categories.forEach(cat => {
+    categoryMap.set(cat.id, { ...cat, children: [] });
+  });
+
+  // Second pass: build tree structure
+  categories.forEach(cat => {
+    const categoryWithChildren = categoryMap.get(cat.id);
+    
+    if (cat.parent_id === null) {
+      // Root level category
+      rootCategories.push(categoryWithChildren);
+    } else {
+      // Child category - add to parent's children
+      const parent = categoryMap.get(cat.parent_id);
+      if (parent) {
+        parent.children.push(categoryWithChildren);
+      }
+    }
+  });
+
+  return rootCategories;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === 'GET') {
-      const { typ } = req.query;
+      const { typ, tree, level } = req.query;
       
-      let rows;
+      let whereClause = '';
+      let params: any[] = [];
+      
       if (typ) {
-        // Filter by type
-        const result = await sql`
-          SELECT k.*, p.name as parent_name 
-          FROM kategorien k 
-          LEFT JOIN kategorien p ON k.parent_id = p.id 
-          WHERE k.typ = ${typ as string}
-          ORDER BY COALESCE(p.name, k.name), k.parent_id NULLS FIRST, k.name
-        `;
-        rows = result.rows;
-      } else {
-        // Get all categories
-        const result = await sql`
-          SELECT k.*, p.name as parent_name 
-          FROM kategorien k 
-          LEFT JOIN kategorien p ON k.parent_id = p.id 
-          ORDER BY COALESCE(p.name, k.name), k.parent_id NULLS FIRST, k.name
-        `;
-        rows = result.rows;
+        whereClause += ' WHERE k.typ = $1';
+        params.push(typ);
       }
+      
+      if (level) {
+        const levelFilter = level === '1' ? 'k.parent_id IS NULL' : 
+                           level === '2' ? 'k.parent_id IS NOT NULL AND EXISTS (SELECT 1 FROM kategorien p WHERE p.id = k.parent_id AND p.parent_id IS NULL)' :
+                           level === '3' ? 'k.parent_id IS NOT NULL AND EXISTS (SELECT 1 FROM kategorien p WHERE p.id = k.parent_id AND p.parent_id IS NOT NULL)' : '';
         
-      res.status(200).json(rows);
+        if (levelFilter) {
+          whereClause += (whereClause ? ' AND ' : ' WHERE ') + levelFilter;
+        }
+      }
+      
+      const query = `
+        SELECT k.*, p.name as parent_name, 
+               CASE 
+                 WHEN k.parent_id IS NULL THEN 1
+                 WHEN EXISTS (SELECT 1 FROM kategorien gp WHERE gp.id = (SELECT parent_id FROM kategorien WHERE id = k.parent_id) AND gp.parent_id IS NULL) THEN 3
+                 ELSE 2
+               END as level
+        FROM kategorien k 
+        LEFT JOIN kategorien p ON k.parent_id = p.id 
+        ${whereClause}
+        ORDER BY 
+          CASE WHEN k.parent_id IS NULL THEN k.name ELSE 
+            (SELECT name FROM kategorien WHERE id = 
+              (SELECT CASE WHEN p.parent_id IS NULL THEN p.id ELSE p.parent_id END FROM kategorien p WHERE p.id = k.parent_id)
+            )
+          END,
+          CASE WHEN k.parent_id IS NULL THEN 0 ELSE 
+            CASE WHEN (SELECT parent_id FROM kategorien WHERE id = k.parent_id) IS NULL THEN 1 ELSE 2 END
+          END,
+          p.name, k.name
+      `;
+      
+      const result = await sql.query(query, params);
+      const rows = result.rows;
+      
+      // If tree structure is requested, build hierarchy
+      if (tree === 'true') {
+        const treeData = buildCategoryTree(rows);
+        res.status(200).json(treeData);
+      } else {
+        res.status(200).json(rows);
+      }
     } 
     else if (req.method === 'POST') {
       const { name, typ, farbe, icon, parent_id } = req.body;
