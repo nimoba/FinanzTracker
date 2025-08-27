@@ -69,6 +69,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error('Database info error:', error);
-    res.status(500).json({ error: 'Failed to get database info', details: error.message });
+    res.status(500).json({ error: 'Failed to get database info', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
