@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Setup FinanceFlow Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background-color: #36a2eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>FinanceFlow Database Setup</h1>
+    <p>Click the button below to initialize your database with tables and default categories:</p>
+    <button onclick="setupDatabase()">Setup Database</button>
+    <div id="result"></div>
+
+    <script>
+        async function setupDatabase() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Setting up database...';
+            resultDiv.className = '';
+            
+            try {
+                const response = await fetch('https://finanz-tracker-one.vercel.app/api/finanzen/setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `✅ Success! ${data.message || 'Database setup complete'}`;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.innerHTML = `❌ Error: ${data.error || 'Setup failed'}`;
+                    resultDiv.className = 'error';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+                resultDiv.className = 'error';
+            }
+        }
+    </script>
+</body>
+</html>

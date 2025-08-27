@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "pages/api/finanzen/*.ts": {
+      "maxDuration": 10
+    },
+    "pages/api/*.ts": {
+      "maxDuration": 10
+    }
+  }
+}
