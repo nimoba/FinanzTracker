@@ -5,9 +5,26 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 50px auto;
             padding: 20px;
+            background: #f8fafc;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #1e293b;
+        }
+        h2 {
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
         }
         button {
             background-color: #36a2eb;
@@ -17,14 +34,20 @@
             font-size: 16px;
             border-radius: 8px;
             cursor: pointer;
+            margin: 5px;
         }
         button:hover {
             background-color: #2980b9;
         }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 4px;
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
         }
         .success {
             background-color: #d4edda;
@@ -36,22 +59,128 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .step {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .step h3 {
+            margin: 0 0 10px 0;
+            color: #374151;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
     </style>
 </head>
 <body>
-    <h1>FinanceFlow Database Setup</h1>
-    <p>Click the button below to initialize your database with tables and default categories:</p>
-    <button onclick="setupDatabase()">Setup Database</button>
-    <div id="result"></div>
+    <h1>🚀 FinanceFlow Database Setup</h1>
+    
+    <div class="card">
+        <h2>📋 Setup Steps</h2>
+        
+        <div class="step">
+            <h3>🗄️ 1. Initialize Database</h3>
+            <p>Set up the basic database tables and structure.</p>
+            <button onclick="setupDatabase()" id="btn-setup">Setup Database</button>
+            <div id="result-setup" class="result"></div>
+        </div>
+
+        <div class="step">
+            <h3>📊 2. Create 3-Level Categories</h3>
+            <div class="warning">
+                <strong>⚠️ Achtung:</strong> Dies ersetzt alle bestehenden Kategorien!
+            </div>
+            <p>Erstellt die neue 3-stufige Kategoriestruktur:</p>
+            <ul>
+                <li><strong>Level 1:</strong> Essen & Trinken, Wohnen, Transport, etc.</li>
+                <li><strong>Level 2:</strong> Restaurants, Lebensmittel, etc.</li>
+                <li><strong>Level 3:</strong> Fast Food, Supermarkt, etc.</li>
+            </ul>
+            <button onclick="setup3LevelCategories()" id="btn-3level">3-Level Kategorien erstellen</button>
+            <div id="result-3level" class="result"></div>
+        </div>
+
+        <div class="step">
+            <h3>💸 3. Enable Account Transfers</h3>
+            <p>Aktiviert die Übertragung zwischen Konten (ohne Einfluss auf Gesamtanalyse).</p>
+            <button onclick="enableTransfers()" id="btn-transfers">Transfer-Funktion aktivieren</button>
+            <div id="result-transfers" class="result"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📋 Was wird erstellt?</h2>
+        <div class="grid">
+            <div>
+                <h4>🗂️ 3-Level Kategorien</h4>
+                <ul>
+                    <li>Essen & Trinken</li>
+                    <li>Einkaufen</li>
+                    <li>Wohnen</li>
+                    <li>Transport</li>
+                    <li>Fahrzeug</li>
+                    <li>Kultur & Unterhaltung</li>
+                    <li>Kommunikation & Technik</li>
+                    <li>Finanzaufwand (Einnahmen)</li>
+                    <li>Investments (Einnahmen)</li>
+                    <li>Sonstiges</li>
+                </ul>
+            </div>
+            <div>
+                <h4>🔄 Transfer Features</h4>
+                <ul>
+                    <li>Geld zwischen Konten übertragen</li>
+                    <li>Automatische Balance-Anpassung</li>
+                    <li>Keine Auswirkung auf Gesamtanalyse</li>
+                    <li>Vollständige Nachverfolgung</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
     <script>
         async function setupDatabase() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = 'Setting up database...';
-            resultDiv.className = '';
+            await runMigration('setup', 'btn-setup', 'result-setup', '/api/finanzen/setup');
+        }
+
+        async function setup3LevelCategories() {
+            await runMigration('3level', 'btn-3level', 'result-3level', '/api/finanzen/migrate-3levels');
+        }
+
+        async function enableTransfers() {
+            await runMigration('transfers', 'btn-transfers', 'result-transfers', '/api/finanzen/migrate-transfers');
+        }
+
+        async function runMigration(type, btnId, resultId, endpoint) {
+            const button = document.getElementById(btnId);
+            const resultDiv = document.getElementById(resultId);
+            
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = 'Loading...';
+            resultDiv.className = 'result loading';
+            resultDiv.innerHTML = `${type === 'setup' ? 'Setting up database' : type === '3level' ? 'Creating 3-level categories' : 'Enabling transfers'}...`;
+            resultDiv.style.display = 'block';
             
             try {
-                const response = await fetch('https://finanz-tracker-one.vercel.app/api/finanzen/setup', {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -59,17 +188,25 @@
                 });
                 
                 const data = await response.json();
+                console.log(`${type} result:`, data);
                 
-                if (response.ok) {
-                    resultDiv.innerHTML = `✅ Success! ${data.message || 'Database setup complete'}`;
-                    resultDiv.className = 'success';
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    let message = `✅ Success! ${data.message || 'Operation completed'}`;
+                    if (data.stats) {
+                        message += `\n\nStats: ${JSON.stringify(data.stats, null, 2)}`;
+                    }
+                    resultDiv.innerHTML = message.replace(/\n/g, '<br>');
+                    button.innerHTML = '✅ Completed';
                 } else {
-                    resultDiv.innerHTML = `❌ Error: ${data.error || 'Setup failed'}`;
-                    resultDiv.className = 'error';
+                    throw new Error(data.error || data.details || 'Operation failed');
                 }
             } catch (error) {
+                console.error(`${type} error:`, error);
+                resultDiv.className = 'result error';
                 resultDiv.innerHTML = `❌ Error: ${error.message}`;
-                resultDiv.className = 'error';
+                button.innerHTML = 'Retry';
+                button.disabled = false;
             }
         }
     </script>

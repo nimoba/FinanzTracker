@@ -142,7 +142,8 @@
             const stepId = type === '3levels' ? 'step1' : 'step2';
             const btnId = `btn-${type}`;
             const resultId = `result-${type}`;
-            const endpoint = type === '3levels' ? '/api/finanzen/migrate-3levels' : '/api/finanzen/migrate-transfers';
+            const baseUrl = 'https://finanz-tracker-mfgcuu3b9-nimobas-projects.vercel.app';
+            const endpoint = type === '3levels' ? `${baseUrl}/api/finanzen/migrate-3levels` : `${baseUrl}/api/finanzen/migrate-transfers`;
             
             const step = document.getElementById(stepId);
             const btn = document.getElementById(btnId);
