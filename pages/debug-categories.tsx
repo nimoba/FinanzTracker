@@ -1,4 +1,4 @@
-// Improved Debug Page with Better Error Handling
+// Fixed Debug Page - compilation error resolved
 
 import { useState, useEffect } from 'react';
 
@@ -183,7 +183,6 @@ export default function CategoryDebugPage() {
     cursor: 'pointer',
     marginRight: '12px',
     marginBottom: '12px',
-    disabled: false,
   };
 
   const mainCategories = categories.filter(cat => !cat.parent_id);
