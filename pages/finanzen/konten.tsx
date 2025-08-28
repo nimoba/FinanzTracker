@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import FloatingTabBar from '@/components/FloatingTabBar';
 import AccountForm from '@/components/AccountForm';
+import TransferForm from '@/components/TransferForm';
 
 interface Account {
   id: number;
@@ -14,6 +15,8 @@ interface Account {
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAccountForm, setShowAccountForm] = useState(false);
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,6 +92,23 @@ export default function AccountsPage() {
     } catch (error) {
       console.error('Error deleting account:', error);
       alert('Fehler beim Löschen des Kontos');
+    }
+  };
+
+  const handleSaveTransfer = async (transferData: any) => {
+    try {
+      const response = await fetch('/api/finanzen/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transferData),
+      });
+
+      if (response.ok) {
+        setShowTransferForm(false);
+        loadAccounts(); // Reload accounts to reflect balance changes
+      }
+    } catch (error) {
+      console.error('Error saving transfer:', error);
     }
   };
 
@@ -286,16 +306,76 @@ export default function AccountsPage() {
         </div>
       )}
 
-      <button 
-        style={floatingButtonStyle}
-        onClick={() => {
-          setEditingAccount(null);
-          setShowAccountForm(true);
-        }}
-        title="Neues Konto"
-      >
-        +
-      </button>
+      {/* Floating Action Menu */}
+      <div style={{ position: 'fixed', bottom: 100, right: 20, zIndex: 99 }}>
+        {showActionMenu && (
+          <div style={{
+            position: 'absolute',
+            bottom: 70,
+            right: 0,
+            backgroundColor: '#1e1e1e',
+            borderRadius: 12,
+            padding: 8,
+            border: '1px solid #333',
+            minWidth: 200
+          }}>
+            <button
+              onClick={() => {
+                setEditingAccount(null);
+                setShowAccountForm(true);
+                setShowActionMenu(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                backgroundColor: 'transparent',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: 4
+              }}
+            >
+              <span style={{ marginRight: 8 }}>🏦</span>
+              Neues Konto
+            </button>
+            {accounts.length >= 2 && (
+              <button
+                onClick={() => {
+                  setShowTransferForm(true);
+                  setShowActionMenu(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <span style={{ marginRight: 8 }}>🔄</span>
+                Geld übertragen
+              </button>
+            )}
+          </div>
+        )}
+        
+        <button 
+          style={floatingButtonStyle}
+          onClick={() => setShowActionMenu(!showActionMenu)}
+          title="Aktionen"
+        >
+          {showActionMenu ? '×' : '+'}
+        </button>
+      </div>
 
       {showAccountForm && (
         <AccountForm
@@ -305,6 +385,13 @@ export default function AccountsPage() {
             setShowAccountForm(false);
             setEditingAccount(null);
           }}
+        />
+      )}
+
+      {showTransferForm && (
+        <TransferForm
+          onSave={handleSaveTransfer}
+          onCancel={() => setShowTransferForm(false)}
         />
       )}
 

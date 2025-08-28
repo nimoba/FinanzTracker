@@ -5,7 +5,7 @@ import TransactionForm from '@/components/TransactionForm';
 interface Transaction {
   id: number;
   betrag: number;
-  typ: 'einnahme' | 'ausgabe';
+  typ: 'einnahme' | 'ausgabe' | 'transfer_out' | 'transfer_in';
   datum: string;
   beschreibung: string;
   konto_name: string;
@@ -13,6 +13,10 @@ interface Transaction {
   kategorie_name: string;
   kategorie_id: number;
   kategorie_icon: string;
+  is_transfer?: boolean;
+  display_beschreibung?: string;
+  ziel_konto_name?: string;
+  transfer_id?: string;
 }
 
 interface Account {
@@ -167,6 +171,22 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleDeleteTransfer = async (transferId: string) => {
+    if (!confirm('Übertrag wirklich löschen? Dies entfernt beide Transaktionen.')) return;
+
+    try {
+      const response = await fetch(`/api/finanzen/transfers?transfer_id=${transferId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        loadTransactions();
+      }
+    } catch (error) {
+      console.error('Error deleting transfer:', error);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -315,6 +335,7 @@ export default function TransactionsPage() {
             <option value="">Alle Typen</option>
             <option value="einnahme">Einnahmen</option>
             <option value="ausgabe">Ausgaben</option>
+            <option value="transfer">Überträge</option>
           </select>
 
           <input
@@ -347,14 +368,31 @@ export default function TransactionsPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                 <span style={{ fontSize: 20, marginRight: 12 }}>
-                  {transaction.kategorie_icon || '💰'}
+                  {transaction.is_transfer ? (
+                    transaction.typ === 'transfer_out' ? '📤' : '📥'
+                  ) : (
+                    transaction.kategorie_icon || '💰'
+                  )}
                 </span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 'bold' }}>
-                    {transaction.beschreibung || transaction.kategorie_name}
+                    {transaction.is_transfer ? 
+                      transaction.display_beschreibung || transaction.beschreibung :
+                      transaction.beschreibung || transaction.kategorie_name
+                    }
                   </div>
                   <div style={{ fontSize: 14, color: '#999' }}>
-                    {transaction.konto_name} • {transaction.kategorie_name} • {formatDate(transaction.datum)}
+                    {transaction.konto_name}
+                    {transaction.is_transfer && transaction.ziel_konto_name && (
+                      <span style={{ color: '#36a2eb' }}>
+                        {transaction.typ === 'transfer_out' ? ' → ' : ' ← '}
+                        {transaction.ziel_konto_name}
+                      </span>
+                    )}
+                    {!transaction.is_transfer && (
+                      <> • {transaction.kategorie_name}</>
+                    )}
+                    • {formatDate(transaction.datum)}
                   </div>
                 </div>
               </div>
@@ -362,24 +400,38 @@ export default function TransactionsPage() {
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <div style={{ 
                   fontWeight: 'bold',
-                  color: transaction.typ === 'einnahme' ? '#22c55e' : '#f44336',
+                  color: transaction.is_transfer ? 
+                    (transaction.typ === 'transfer_out' ? '#f44336' : '#22c55e') :
+                    (transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'),
                   marginRight: 16
                 }}>
-                  {transaction.typ === 'einnahme' ? '+' : '-'}{formatCurrency(transaction.betrag)}
+                  {transaction.is_transfer ? (
+                    transaction.typ === 'transfer_out' ? '-' : '+'
+                  ) : (
+                    transaction.typ === 'einnahme' ? '+' : '-'
+                  )}{formatCurrency(Math.abs(transaction.betrag))}
                 </div>
+                
+                {!transaction.is_transfer && (
+                  <button
+                    onClick={() => {
+                      setEditingTransaction(transaction);
+                      setShowTransactionForm(true);
+                    }}
+                    style={actionButtonStyle}
+                  >
+                    Bearbeiten
+                  </button>
+                )}
                 
                 <button
                   onClick={() => {
-                    setEditingTransaction(transaction);
-                    setShowTransactionForm(true);
+                    if (transaction.is_transfer) {
+                      handleDeleteTransfer(transaction.transfer_id!);
+                    } else {
+                      handleDeleteTransaction(transaction.id);
+                    }
                   }}
-                  style={actionButtonStyle}
-                >
-                  Bearbeiten
-                </button>
-                
-                <button
-                  onClick={() => handleDeleteTransaction(transaction.id)}
                   style={{ ...actionButtonStyle, color: '#f44336' }}
                 >
                   Löschen

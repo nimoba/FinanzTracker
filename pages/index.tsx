@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import FloatingTabBar from '@/components/FloatingTabBar';
 import StatsCard from '@/components/StatsCard';
 import TransactionForm from '@/components/TransactionForm';
+import TransferForm from '@/components/TransferForm';
 
 interface DashboardData {
   gesamtsaldo: number;
@@ -17,13 +18,17 @@ interface DashboardData {
 interface Transaction {
   id: number;
   betrag: number;
-  typ: 'einnahme' | 'ausgabe';
+  typ: 'einnahme' | 'ausgabe' | 'transfer_out' | 'transfer_in';
   datum: string;
   beschreibung: string;
   konto_name: string;
   kategorie_name: string;
   kategorie_icon: string;
   kategorie_id: number;
+  is_transfer?: boolean;
+  display_beschreibung?: string;
+  ziel_konto_name?: string;
+  transfer_id?: string;
 }
 
 interface Category {
@@ -41,6 +46,8 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -113,6 +120,23 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error saving transaction:', error);
+    }
+  };
+
+  const handleSaveTransfer = async (transferData: any) => {
+    try {
+      const response = await fetch('/api/finanzen/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transferData),
+      });
+
+      if (response.ok) {
+        setShowTransferForm(false);
+        loadDashboardData(); // Reload data to reflect changes
+      }
+    } catch (error) {
+      console.error('Error saving transfer:', error);
     }
   };
 
@@ -314,34 +338,58 @@ export default function Dashboard() {
               >
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   <span style={{ fontSize: 20, marginRight: 12 }}>
-                    {transaction.kategorie_icon || '💰'}
+                    {transaction.is_transfer ? (
+                      transaction.typ === 'transfer_out' ? '📤' : '📥'
+                    ) : (
+                      transaction.kategorie_icon || '💰'
+                    )}
                   </span>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>
-                      {transaction.beschreibung || transaction.kategorie_name}
+                      {transaction.is_transfer ? 
+                        transaction.display_beschreibung || transaction.beschreibung :
+                        transaction.beschreibung || transaction.kategorie_name
+                      }
                     </div>
                     <div style={{ fontSize: 14, color: '#999' }}>
-                      {transaction.konto_name} • 
-                      <span style={{ marginLeft: 4 }}>
-                        {category?.parent_name ? (
-                          <span>
-                            <span style={{ color: '#666' }}>{category.parent_name}</span>
-                            <span style={{ color: '#36a2eb', margin: '0 4px' }}> › </span>
-                            <span>{category.name}</span>
+                      {transaction.konto_name}
+                      {transaction.is_transfer && transaction.ziel_konto_name && (
+                        <span style={{ color: '#36a2eb' }}>
+                          {transaction.typ === 'transfer_out' ? ' → ' : ' ← '}
+                          {transaction.ziel_konto_name}
+                        </span>
+                      )}
+                      {!transaction.is_transfer && (
+                        <>
+                          {' • '}
+                          <span style={{ marginLeft: 4 }}>
+                            {category?.parent_name ? (
+                              <span>
+                                <span style={{ color: '#666' }}>{category.parent_name}</span>
+                                <span style={{ color: '#36a2eb', margin: '0 4px' }}> › </span>
+                                <span>{category.name}</span>
+                              </span>
+                            ) : (
+                              transaction.kategorie_name
+                            )}
                           </span>
-                        ) : (
-                          transaction.kategorie_name
-                        )}
-                      </span>
+                        </>
+                      )}
                       • {formatDate(transaction.datum)}
                     </div>
                   </div>
                 </div>
                 <div style={{ 
                   fontWeight: 'bold',
-                  color: transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'
+                  color: transaction.is_transfer ? 
+                    (transaction.typ === 'transfer_out' ? '#f44336' : '#22c55e') :
+                    (transaction.typ === 'einnahme' ? '#22c55e' : '#f44336')
                 }}>
-                  {transaction.typ === 'einnahme' ? '+' : '-'}{formatCurrency(transaction.betrag)}
+                  {transaction.is_transfer ? (
+                    transaction.typ === 'transfer_out' ? '-' : '+'
+                  ) : (
+                    transaction.typ === 'einnahme' ? '+' : '-'
+                  )}{formatCurrency(Math.abs(transaction.betrag))}
                 </div>
               </div>
             );
@@ -375,18 +423,85 @@ export default function Dashboard() {
         </div>
       )}
 
-      <button 
-        style={floatingButtonStyle}
-        onClick={() => setShowTransactionForm(true)}
-        title="Neue Transaktion"
-      >
-        +
-      </button>
+      {/* Floating Action Menu */}
+      <div style={{ position: 'fixed', bottom: 100, right: 20, zIndex: 99 }}>
+        {showActionMenu && (
+          <div style={{
+            position: 'absolute',
+            bottom: 70,
+            right: 0,
+            backgroundColor: '#1e1e1e',
+            borderRadius: 12,
+            padding: 8,
+            border: '1px solid #333',
+            minWidth: 200
+          }}>
+            <button
+              onClick={() => {
+                setShowTransactionForm(true);
+                setShowActionMenu(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                backgroundColor: 'transparent',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: 4
+              }}
+            >
+              <span style={{ marginRight: 8 }}>💰</span>
+              Neue Transaktion
+            </button>
+            <button
+              onClick={() => {
+                setShowTransferForm(true);
+                setShowActionMenu(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                backgroundColor: 'transparent',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <span style={{ marginRight: 8 }}>🔄</span>
+              Geld übertragen
+            </button>
+          </div>
+        )}
+        
+        <button 
+          style={floatingButtonStyle}
+          onClick={() => setShowActionMenu(!showActionMenu)}
+          title="Aktionen"
+        >
+          {showActionMenu ? '×' : '+'}
+        </button>
+      </div>
 
       {showTransactionForm && (
         <TransactionForm
           onSave={handleSaveTransaction}
           onCancel={() => setShowTransactionForm(false)}
+        />
+      )}
+
+      {showTransferForm && (
+        <TransferForm
+          onSave={handleSaveTransfer}
+          onCancel={() => setShowTransferForm(false)}
         />
       )}
 
