@@ -12,6 +12,11 @@ function generateUUID(): string {
   });
 }
 
+type Account = {
+  id: number;
+  name: string;
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === 'POST') {
@@ -42,16 +47,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Verify both accounts exist
-      const { rows: accounts } = await sql`
+      const { rows: accountRows } = await sql`
         SELECT id, name FROM konten WHERE id IN (${von_konto_id}, ${zu_konto_id})
       `;
       
-      if (accounts.length !== 2) {
+      if (accountRows.length !== 2) {
         return res.status(400).json({ error: 'Ein oder beide Konten existieren nicht' });
       }
 
+      // Type-safe account extraction
+      const accounts: Account[] = accountRows.map(row => ({
+        id: row.id as number,
+        name: row.name as string
+      }));
+
       const vonKonto = accounts.find(a => a.id === parseInt(von_konto_id));
       const zuKonto = accounts.find(a => a.id === parseInt(zu_konto_id));
+
+      // Additional safety check (though logically unnecessary after length check)
+      if (!vonKonto || !zuKonto) {
+        return res.status(400).json({ error: 'Fehler beim Verarbeiten der Konten-Informationen' });
+      }
 
       // Generate unique transfer ID
       const transferId = generateUUID();
@@ -154,8 +170,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       for (const transaction of transferTransactions) {
         await sql`
           UPDATE konten 
-          SET saldo = saldo - ${transaction.betrag}
-          WHERE id = ${transaction.konto_id}
+          SET saldo = saldo - ${transaction.betrag as number}
+          WHERE id = ${transaction.konto_id as number}
         `;
       }
 

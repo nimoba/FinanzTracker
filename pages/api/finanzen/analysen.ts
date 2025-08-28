@@ -204,7 +204,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       res.status(200).json({
-        ...summary[0],
+        ...(summary[0] || {
+          gesamtsaldo: null,
+          monatliche_einnahmen: null,
+          monatliche_ausgaben: null,
+          monatliche_transaktionen: 0
+        }),
         ...budgetStatus
       });
       
