@@ -195,7 +195,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ) ausgegeben ON b.kategorie_id = ausgegeben.kategorie_id
           WHERE b.monat = DATE_TRUNC('month', CURRENT_DATE)
         `;
-        budgetStatus = rows[0] || { gesamt_budgets: 0, ueberschrittene_budgets: 0 };
+        if (rows.length > 0) {
+          budgetStatus = {
+            gesamt_budgets: parseInt(rows[0].gesamt_budgets as string) || 0,
+            ueberschrittene_budgets: parseInt(rows[0].ueberschrittene_budgets as string) || 0
+          };
+        }
       }
       
       res.status(200).json({
