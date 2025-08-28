@@ -3,6 +3,21 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sql } from '@vercel/postgres';
 
+type DatabaseCategory = {
+  id: number;
+  name: string;
+  typ: string;
+};
+
+type InsertedCategory = DatabaseCategory & {
+  originalName: string;
+};
+
+type InsertedLevel2Category = DatabaseCategory & {
+  originalName: string;
+  parentOriginalName: string;
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -153,11 +168,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       SELECT COUNT(*) as count FROM kategorien
     `;
     
-    if (parseInt(existingCategories[0].count) > 0) {
-      console.log(`Found ${existingCategories[0].count} existing categories`);
+    const existingCount = parseInt(existingCategories[0]?.count as string || '0');
+    if (existingCount > 0) {
+      console.log(`Found ${existingCount} existing categories`);
       return res.status(200).json({ 
         success: true, 
-        message: `Database already initialized with ${existingCategories[0].count} categories`,
+        message: `Database already initialized with ${existingCount} categories`,
         existing: true
       });
     }
@@ -182,7 +198,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { name: 'Sonstiges', typ: 'ausgabe', icon: '❓', farbe: '#ef6c00', level: 1 },
     ];
 
-    const insertedLevel1 = [];
+    const insertedLevel1: InsertedCategory[] = [];
     for (const category of level1Categories) {
       try {
         const { rows } = await sql`
@@ -190,7 +206,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           VALUES (${category.name}, ${category.typ}, ${category.icon}, ${category.farbe}, ${category.level}, null)
           RETURNING id, name, typ
         `;
-        insertedLevel1.push({ ...rows[0], originalName: category.name });
+        const insertedCategory: InsertedCategory = {
+          id: rows[0].id as number,
+          name: rows[0].name as string,
+          typ: rows[0].typ as string,
+          originalName: category.name
+        };
+        insertedLevel1.push(insertedCategory);
         console.log(`✅ Inserted Level 1 category: ${category.name} (ID: ${rows[0].id})`);
       } catch (categoryError) {
         console.error(`❌ Error with Level 1 category ${category.name}:`, categoryError);
@@ -270,7 +292,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { name: 'Verschiedenes', parentName: 'Sonstiges', icon: '❓', farbe: '#bf360c' },
     ];
 
-    const insertedLevel2 = [];
+    const insertedLevel2: InsertedLevel2Category[] = [];
     for (const category of level2Categories) {
       try {
         // Find parent category ID
@@ -281,7 +303,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             VALUES (${category.name}, ${parent.typ}, ${category.icon}, ${category.farbe}, 2, ${parent.id})
             RETURNING id, name, typ
           `;
-          insertedLevel2.push({ ...rows[0], originalName: category.name, parentOriginalName: category.parentName });
+          const insertedCategory: InsertedLevel2Category = {
+            id: rows[0].id as number,
+            name: rows[0].name as string,
+            typ: rows[0].typ as string,
+            originalName: category.name,
+            parentOriginalName: category.parentName
+          };
+          insertedLevel2.push(insertedCategory);
           console.log(`✅ Inserted Level 2 category: ${category.name} under ${category.parentName} (ID: ${rows[0].id})`);
         } else {
           console.log(`⚠️ Parent category ${category.parentName} not found for ${category.name}`);
@@ -350,7 +379,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { name: 'Wellness', parentName: 'Gesundheit', icon: '💆', farbe: '#ef6c00' },
     ];
 
-    const insertedLevel3 = [];
+    const insertedLevel3: DatabaseCategory[] = [];
     for (const category of level3Categories) {
       try {
         // Find parent category ID
@@ -361,7 +390,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             VALUES (${category.name}, ${parent.typ}, ${category.icon}, ${category.farbe}, 3, ${parent.id})
             RETURNING id, name
           `;
-          insertedLevel3.push(rows[0]);
+          insertedLevel3.push({
+            id: rows[0].id as number,
+            name: rows[0].name as string,
+            typ: parent.typ
+          });
           console.log(`✅ Inserted Level 3 category: ${category.name} under ${category.parentName} (ID: ${rows[0].id})`);
         } else {
           console.log(`⚠️ Parent category ${category.parentName} not found for ${category.name}`);
@@ -378,7 +411,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         SELECT COUNT(*) as count FROM konten
       `;
       
-      if (parseInt(existingAccounts[0].count) === 0) {
+      const accountCount = parseInt(existingAccounts[0]?.count as string || '0');
+      if (accountCount === 0) {
         const defaultAccounts = [
           { name: 'Girokonto', typ: 'Girokonto', farbe: '#36a2eb' },
           { name: 'Sparkonto', typ: 'Sparkonto', farbe: '#4bc0c0' },
@@ -418,11 +452,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true, 
       message: 'Database setup completed successfully with 3-level categories!',
       stats: {
-        total_categories: parseInt(finalCategories[0].total),
-        level1_categories: parseInt(finalCategories[0].level1),
-        level2_categories: parseInt(finalCategories[0].level2),
-        level3_categories: parseInt(finalCategories[0].level3),
-        accounts: parseInt(finalAccounts[0].count)
+        total_categories: parseInt(finalCategories[0]?.total as string || '0'),
+        level1_categories: parseInt(finalCategories[0]?.level1 as string || '0'),
+        level2_categories: parseInt(finalCategories[0]?.level2 as string || '0'),
+        level3_categories: parseInt(finalCategories[0]?.level3 as string || '0'),
+        accounts: parseInt(finalAccounts[0]?.count as string || '0')
       }
     });
 
