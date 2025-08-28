@@ -424,6 +424,7 @@ export default function TransactionsPage() {
                   )}{formatCurrency(Math.abs(transaction.betrag))}
                 </div>
                 
+                <div style={{ display: 'flex', gap: 4 }}>
                   {!transaction.is_transfer && (
                     <button
                       onClick={() => {
