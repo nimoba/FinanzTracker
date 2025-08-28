@@ -11,63 +11,140 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let rows;
       if (hierarchical === 'true') {
         // Return hierarchical structure
-        const result = await sql`
-          WITH RECURSIVE category_tree AS (
-            -- Level 1 categories (root)
-            SELECT id, name, typ, farbe, icon, level, parent_id, 
-                   name as full_path,
-                   ARRAY[id] as path_ids
-            FROM kategorien 
-            WHERE parent_id IS NULL
-            
-            UNION ALL
-            
-            -- Recursive part: children
-            SELECT k.id, k.name, k.typ, k.farbe, k.icon, k.level, k.parent_id,
-                   ct.full_path || ' > ' || k.name as full_path,
-                   ct.path_ids || k.id as path_ids
-            FROM kategorien k
-            INNER JOIN category_tree ct ON k.parent_id = ct.id
-          )
-          SELECT * FROM category_tree
-          ${typ ? sql`WHERE typ = ${typ as string}` : sql``}
-          ORDER BY path_ids
-        `;
-        rows = result.rows;
+        if (typ) {
+          const result = await sql`
+            WITH RECURSIVE category_tree AS (
+              -- Level 1 categories (root)
+              SELECT id, name, typ, farbe, icon, level, parent_id, 
+                     name as full_path,
+                     ARRAY[id] as path_ids
+              FROM kategorien 
+              WHERE parent_id IS NULL AND typ = ${typ as string}
+              
+              UNION ALL
+              
+              -- Recursive part: children
+              SELECT k.id, k.name, k.typ, k.farbe, k.icon, k.level, k.parent_id,
+                     ct.full_path || ' > ' || k.name as full_path,
+                     ct.path_ids || k.id as path_ids
+              FROM kategorien k
+              INNER JOIN category_tree ct ON k.parent_id = ct.id
+            )
+            SELECT * FROM category_tree
+            ORDER BY path_ids
+          `;
+          rows = result.rows;
+        } else {
+          const result = await sql`
+            WITH RECURSIVE category_tree AS (
+              -- Level 1 categories (root)
+              SELECT id, name, typ, farbe, icon, level, parent_id, 
+                     name as full_path,
+                     ARRAY[id] as path_ids
+              FROM kategorien 
+              WHERE parent_id IS NULL
+              
+              UNION ALL
+              
+              -- Recursive part: children
+              SELECT k.id, k.name, k.typ, k.farbe, k.icon, k.level, k.parent_id,
+                     ct.full_path || ' > ' || k.name as full_path,
+                     ct.path_ids || k.id as path_ids
+              FROM kategorien k
+              INNER JOIN category_tree ct ON k.parent_id = ct.id
+            )
+            SELECT * FROM category_tree
+            ORDER BY path_ids
+          `;
+          rows = result.rows;
+        }
       } else if (level) {
         // Filter by level
-        const result = await sql`
-          SELECT k.*, 
-                 p1.name as parent_name,
-                 p2.name as grandparent_name
-          FROM kategorien k 
-          LEFT JOIN kategorien p1 ON k.parent_id = p1.id
-          LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
-          WHERE k.level = ${parseInt(level as string)}
-          ${typ ? sql`AND k.typ = ${typ as string}` : sql``}
-          ${parent_id ? sql`AND k.parent_id = ${parseInt(parent_id as string)}` : sql``}
-          ORDER BY p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
-        `;
-        rows = result.rows;
+        if (typ && parent_id) {
+          const result = await sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.level = ${parseInt(level as string)}
+              AND k.typ = ${typ as string}
+              AND k.parent_id = ${parseInt(parent_id as string)}
+            ORDER BY p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+          `;
+          rows = result.rows;
+        } else if (typ) {
+          const result = await sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.level = ${parseInt(level as string)}
+              AND k.typ = ${typ as string}
+            ORDER BY p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+          `;
+          rows = result.rows;
+        } else if (parent_id) {
+          const result = await sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.level = ${parseInt(level as string)}
+              AND k.parent_id = ${parseInt(parent_id as string)}
+            ORDER BY p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+          `;
+          rows = result.rows;
+        } else {
+          const result = await sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.level = ${parseInt(level as string)}
+            ORDER BY p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
+          `;
+          rows = result.rows;
+        }
       } else if (parent_id) {
         // Get children of specific parent
-        const result = await sql`
-          SELECT k.*, 
-                 p1.name as parent_name,
-                 p2.name as grandparent_name
-          FROM kategorien k 
-          LEFT JOIN kategorien p1 ON k.parent_id = p1.id
-          LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
-          WHERE k.parent_id = ${parseInt(parent_id as string)}
-          ${typ ? sql`AND k.typ = ${typ as string}` : sql``}
-          ORDER BY k.name
-        `;
-        rows = result.rows;
+        if (typ) {
+          const result = await sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.parent_id = ${parseInt(parent_id as string)}
+              AND k.typ = ${typ as string}
+            ORDER BY k.name
+          `;
+          rows = result.rows;
+        } else {
+          const result = await sql`
+            SELECT k.*, 
+                   p1.name as parent_name,
+                   p2.name as grandparent_name
+            FROM kategorien k 
+            LEFT JOIN kategorien p1 ON k.parent_id = p1.id
+            LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
+            WHERE k.parent_id = ${parseInt(parent_id as string)}
+            ORDER BY k.name
+          `;
+          rows = result.rows;
+        }
       } else {
         // Get all categories with parent info
-        let query;
         if (typ) {
-          query = sql`
+          const result = await sql`
             SELECT k.*, 
                    p1.name as parent_name,
                    p2.name as grandparent_name
@@ -77,8 +154,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             WHERE k.typ = ${typ as string}
             ORDER BY k.level, p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
           `;
+          rows = result.rows;
         } else {
-          query = sql`
+          const result = await sql`
             SELECT k.*, 
                    p1.name as parent_name,
                    p2.name as grandparent_name
@@ -87,9 +165,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             LEFT JOIN kategorien p2 ON p1.parent_id = p2.id
             ORDER BY k.level, p2.name NULLS FIRST, p1.name NULLS FIRST, k.name
           `;
+          rows = result.rows;
         }
-        const result = await query;
-        rows = result.rows;
       }
         
       res.status(200).json(rows);
