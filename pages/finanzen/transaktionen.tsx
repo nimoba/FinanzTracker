@@ -466,7 +466,15 @@ export default function TransactionsPage() {
 
       {showTransactionForm && (
         <TransactionForm
-          transaction={editingTransaction || undefined}
+          transaction={editingTransaction && !editingTransaction.is_transfer ? {
+            id: editingTransaction.id,
+            konto_id: editingTransaction.konto_id,
+            betrag: editingTransaction.betrag,
+            typ: editingTransaction.typ as 'einnahme' | 'ausgabe',
+            kategorie_id: editingTransaction.kategorie_id,
+            datum: editingTransaction.datum,
+            beschreibung: editingTransaction.beschreibung,
+          } : undefined}
           onSave={handleSaveTransaction}
           onCancel={() => {
             setShowTransactionForm(false);
