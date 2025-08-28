@@ -199,7 +199,7 @@ export default function TransactionsPage() {
   };
 
   const containerStyle: React.CSSProperties = {
-    padding: "24px",
+    padding: "12px",
     backgroundColor: "#2c2c2c",
     minHeight: "100vh",
     color: "#ffffff",
@@ -207,24 +207,24 @@ export default function TransactionsPage() {
   };
 
   const headerStyle: React.CSSProperties = {
-    marginBottom: 24,
+    marginBottom: 16,
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 12,
   };
 
   const filtersStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: 12,
-    marginBottom: 24,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: 8,
+    marginBottom: 16,
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: 12,
+    padding: 8,
     fontSize: 14,
     borderRadius: 8,
     border: '1px solid #555',
@@ -239,11 +239,12 @@ export default function TransactionsPage() {
   };
 
   const transactionItemStyle: React.CSSProperties = {
-    padding: 16,
+    padding: 12,
     borderBottom: '1px solid #333',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
   };
 
   const actionButtonStyle: React.CSSProperties = {
@@ -251,8 +252,9 @@ export default function TransactionsPage() {
     color: '#36a2eb',
     border: 'none',
     cursor: 'pointer',
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 12,
+    padding: '4px 6px',
   };
 
   const floatingButtonStyle: React.CSSProperties = {
@@ -366,44 +368,54 @@ export default function TransactionsPage() {
                 borderBottom: index === filteredTransactions.length - 1 ? 'none' : '1px solid #333'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <span style={{ fontSize: 20, marginRight: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>
                   {transaction.is_transfer ? (
                     transaction.typ === 'transfer_out' ? '📤' : '📥'
                   ) : (
                     transaction.kategorie_icon || '💰'
                   )}
                 </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: 14,
+                    lineHeight: '1.3',
+                    marginBottom: 4,
+                    wordBreak: 'break-word' as const
+                  }}>
                     {transaction.is_transfer ? 
                       transaction.display_beschreibung || transaction.beschreibung :
                       transaction.beschreibung || transaction.kategorie_name
                     }
                   </div>
-                  <div style={{ fontSize: 14, color: '#999' }}>
-                    {transaction.konto_name}
-                    {transaction.is_transfer && transaction.ziel_konto_name && (
-                      <span style={{ color: '#36a2eb' }}>
-                        {transaction.typ === 'transfer_out' ? ' → ' : ' ← '}
-                        {transaction.ziel_konto_name}
-                      </span>
-                    )}
-                    {!transaction.is_transfer && (
-                      <> • {transaction.kategorie_name}</>
-                    )}
-                    • {formatDate(transaction.datum)}
+                  <div style={{ fontSize: 12, color: '#999', lineHeight: '1.4' }}>
+                    <div>{transaction.konto_name}
+                      {transaction.is_transfer && transaction.ziel_konto_name && (
+                        <span style={{ color: '#36a2eb' }}>
+                          {transaction.typ === 'transfer_out' ? ' → ' : ' ← '}
+                          {transaction.ziel_konto_name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ marginTop: 2 }}>
+                      {!transaction.is_transfer && (
+                        <span>{transaction.kategorie_name} • </span>
+                      )}
+                      {formatDate(transaction.datum)}
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                 <div style={{ 
                   fontWeight: 'bold',
+                  fontSize: 14,
                   color: transaction.is_transfer ? 
                     (transaction.typ === 'transfer_out' ? '#f44336' : '#22c55e') :
                     (transaction.typ === 'einnahme' ? '#22c55e' : '#f44336'),
-                  marginRight: 16
+                  marginBottom: 8
                 }}>
                   {transaction.is_transfer ? (
                     transaction.typ === 'transfer_out' ? '-' : '+'
@@ -412,30 +424,31 @@ export default function TransactionsPage() {
                   )}{formatCurrency(Math.abs(transaction.betrag))}
                 </div>
                 
-                {!transaction.is_transfer && (
+                  {!transaction.is_transfer && (
+                    <button
+                      onClick={() => {
+                        setEditingTransaction(transaction);
+                        setShowTransactionForm(true);
+                      }}
+                      style={actionButtonStyle}
+                    >
+                      ✏️
+                    </button>
+                  )}
+                  
                   <button
                     onClick={() => {
-                      setEditingTransaction(transaction);
-                      setShowTransactionForm(true);
+                      if (transaction.is_transfer) {
+                        handleDeleteTransfer(transaction.transfer_id!);
+                      } else {
+                        handleDeleteTransaction(transaction.id);
+                      }
                     }}
-                    style={actionButtonStyle}
+                    style={{ ...actionButtonStyle, color: '#f44336' }}
                   >
-                    Bearbeiten
+                    🗑️
                   </button>
-                )}
-                
-                <button
-                  onClick={() => {
-                    if (transaction.is_transfer) {
-                      handleDeleteTransfer(transaction.transfer_id!);
-                    } else {
-                      handleDeleteTransaction(transaction.id);
-                    }
-                  }}
-                  style={{ ...actionButtonStyle, color: '#f44336' }}
-                >
-                  Löschen
-                </button>
+                </div>
               </div>
             </div>
           ))}

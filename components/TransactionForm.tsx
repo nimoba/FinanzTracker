@@ -141,28 +141,29 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
   const formStyle: React.CSSProperties = {
     backgroundColor: '#1e1e1e',
     borderRadius: 12,
-    padding: 24,
+    padding: 16,
     maxWidth: 500,
-    width: '90%',
-    maxHeight: '80vh',
+    width: '95%',
+    maxHeight: '85vh',
     overflowY: 'auto',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: 12,
+    padding: 10,
     fontSize: 16,
     borderRadius: 8,
     border: '1px solid #555',
     backgroundColor: '#2a2a2a',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
+    boxSizing: 'border-box' as const,
   };
 
   const selectStyle: React.CSSProperties = {
     ...inputStyle,
     height: 'auto',
-    minHeight: '48px',
+    minHeight: '44px',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -184,24 +185,23 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
 
   const typeToggleStyle = (active: boolean): React.CSSProperties => ({
     flex: 1,
-    padding: '12px 16px',
+    padding: '10px 12px',
     border: 'none',
     borderRadius: 8,
-    fontSize: 16,
+    fontSize: 14,
     cursor: 'pointer',
     backgroundColor: active ? '#36a2eb' : '#2a2a2a',
     color: '#fff',
-    marginRight: 8,
   });
 
   return (
     <div style={modalStyle} onClick={(e) => e.target === e.currentTarget && onCancel()}>
       <form style={formStyle} onSubmit={handleSubmit}>
-        <h2 style={{ marginBottom: 24, color: '#fff' }}>
+        <h2 style={{ marginBottom: 16, color: '#fff', fontSize: 18 }}>
           {transaction ? 'Transaktion bearbeiten' : 'Neue Transaktion'}
         </h2>
 
-        <div style={{ display: 'flex', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button
             type="button"
             style={typeToggleStyle(formData.typ === 'einnahme')}
@@ -295,8 +295,8 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           
           {/* Category Debug Info */}
           {categories.length > 0 && (
-            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-              📊 {categories.length} Kategorien geladen ({mainCategories.length} Haupt, {subcategories.length} Unter)
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              📊 {categories.length} Kategorien ({mainCategories.length} Haupt, {subcategories.length} Unter)
             </div>
           )}
         </div>

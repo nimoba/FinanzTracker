@@ -132,7 +132,7 @@ export default function AccountsPage() {
   };
 
   const containerStyle: React.CSSProperties = {
-    padding: "24px",
+    padding: "12px",
     backgroundColor: "#2c2c2c",
     minHeight: "100vh",
     color: "#ffffff",
@@ -140,21 +140,21 @@ export default function AccountsPage() {
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 16,
   };
 
   const accountGridStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: 16,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: 12,
   };
 
   const accountCardStyle = (color: string): React.CSSProperties => ({
     backgroundColor: '#1e1e1e',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     border: `2px solid ${color}`,
     position: 'relative',
   });
@@ -162,25 +162,25 @@ export default function AccountsPage() {
   const accountHeaderStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   };
 
   const accountIconStyle: React.CSSProperties = {
-    fontSize: 32,
-    marginRight: 12,
+    fontSize: 28,
+    marginRight: 10,
   };
 
   const accountBalanceStyle = (balance: number): React.CSSProperties => ({
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: balance >= 0 ? '#22c55e' : '#f44336',
     marginBottom: 8,
   });
 
   const accountTypeStyle: React.CSSProperties = {
-    fontSize: 14,
+    fontSize: 12,
     color: '#999',
-    marginBottom: 16,
+    marginBottom: 12,
   };
 
   const actionButtonsStyle: React.CSSProperties = {
@@ -193,8 +193,8 @@ export default function AccountsPage() {
     color: '#fff',
     border: 'none',
     borderRadius: 6,
-    padding: '8px 12px',
-    fontSize: 14,
+    padding: '6px 10px',
+    fontSize: 12,
     cursor: 'pointer',
     fontWeight: 'bold',
   };
@@ -237,14 +237,14 @@ export default function AccountsPage() {
       <div style={{ 
         backgroundColor: '#1e1e1e', 
         borderRadius: 12, 
-        padding: 20, 
-        marginBottom: 24,
+        padding: 16, 
+        marginBottom: 16,
         border: '1px solid #333',
         textAlign: 'center'
       }}>
-        <h2 style={{ margin: 0, marginBottom: 8, color: '#ccc' }}>Gesamtsaldo</h2>
+        <h2 style={{ margin: 0, marginBottom: 6, color: '#ccc', fontSize: 14 }}>Gesamtsaldo</h2>
         <div style={{ 
-          fontSize: 36, 
+          fontSize: 28, 
           fontWeight: 'bold',
           color: totalBalance >= 0 ? '#22c55e' : '#f44336'
         }}>
@@ -260,7 +260,7 @@ export default function AccountsPage() {
                 <span style={accountIconStyle}>
                   {getAccountIcon(account.typ)}
                 </span>
-                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 'bold' }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 'bold' }}>
                   {account.name}
                 </h3>
               </div>

@@ -84,28 +84,29 @@ export default function TransferForm({ onSave, onCancel, isLoading }: TransferFo
   const formStyle: React.CSSProperties = {
     backgroundColor: '#1e1e1e',
     borderRadius: 12,
-    padding: 24,
+    padding: 16,
     maxWidth: 500,
-    width: '90%',
-    maxHeight: '80vh',
+    width: '95%',
+    maxHeight: '85vh',
     overflowY: 'auto',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: 12,
+    padding: 10,
     fontSize: 16,
     borderRadius: 8,
     border: '1px solid #555',
     backgroundColor: '#2a2a2a',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
+    boxSizing: 'border-box' as const,
   };
 
   const selectStyle: React.CSSProperties = {
     ...inputStyle,
     height: 'auto',
-    minHeight: '48px',
+    minHeight: '44px',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -140,7 +141,7 @@ export default function TransferForm({ onSave, onCancel, isLoading }: TransferFo
   return (
     <div style={modalStyle} onClick={(e) => e.target === e.currentTarget && onCancel()}>
       <form style={formStyle} onSubmit={handleSubmit}>
-        <h2 style={{ marginBottom: 24, color: '#fff' }}>
+        <h2 style={{ marginBottom: 16, color: '#fff', fontSize: 18 }}>
           🔄 Geld zwischen Konten übertragen
         </h2>
 

@@ -155,7 +155,7 @@ export default function Dashboard() {
   };
 
   const containerStyle: React.CSSProperties = {
-    padding: "24px",
+    padding: "12px",
     backgroundColor: "#2c2c2c",
     minHeight: "100vh",
     color: "#ffffff",
@@ -164,13 +164,13 @@ export default function Dashboard() {
 
   const headerStyle: React.CSSProperties = {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 16,
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     margin: 0,
   };
@@ -181,16 +181,18 @@ export default function Dashboard() {
     border: 'none',
     borderRadius: 8,
     padding: '8px 12px',
-    fontSize: 14,
+    fontSize: 12,
     cursor: 'pointer',
-    marginLeft: '8px',
+    marginRight: '8px',
+    marginBottom: '8px',
+    whiteSpace: 'nowrap' as const,
   };
 
   const sectionTitleStyle: React.CSSProperties = {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 16,
-    marginTop: 32,
+    marginBottom: 12,
+    marginTop: 20,
   };
 
   const transactionListStyle: React.CSSProperties = {
@@ -200,11 +202,12 @@ export default function Dashboard() {
   };
 
   const transactionItemStyle: React.CSSProperties = {
-    padding: 16,
+    padding: 12,
     borderBottom: '1px solid #333',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
   };
 
   const floatingButtonStyle: React.CSSProperties = {
@@ -235,7 +238,11 @@ export default function Dashboard() {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <h1 style={titleStyle}>💰 FinanceFlow</h1>
-        <div>
+        <div style={{ 
+          display: 'flex', 
+          flexWrap: 'wrap',
+          gap: 8,
+        }}>
           <button 
             style={appSwitcherStyle}
             onClick={() => window.open('/debug-categories', '_blank')}
@@ -252,7 +259,7 @@ export default function Dashboard() {
             style={appSwitcherStyle}
             onClick={() => window.open('http://localhost:3001', '_blank')}
           >
-            🍽️ Zur Kalorienverfolgung
+            🍽️ Kalorien
           </button>
         </div>
       </div>
@@ -286,7 +293,7 @@ export default function Dashboard() {
       )}
 
       {summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12 }}>
           <StatsCard
             icon="💰"
             title="Gesamtsaldo"
@@ -336,33 +343,39 @@ export default function Dashboard() {
                   borderBottom: index === transactions.length - 1 ? 'none' : '1px solid #333'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span style={{ fontSize: 20, marginRight: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>
                     {transaction.is_transfer ? (
                       transaction.typ === 'transfer_out' ? '📤' : '📥'
                     ) : (
                       transaction.kategorie_icon || '💰'
                     )}
                   </span>
-                  <div>
-                    <div style={{ fontWeight: 'bold' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ 
+                      fontWeight: 'bold', 
+                      fontSize: 14,
+                      lineHeight: '1.3',
+                      marginBottom: 4,
+                      wordBreak: 'break-word' as const
+                    }}>
                       {transaction.is_transfer ? 
                         transaction.display_beschreibung || transaction.beschreibung :
                         transaction.beschreibung || transaction.kategorie_name
                       }
                     </div>
-                    <div style={{ fontSize: 14, color: '#999' }}>
-                      {transaction.konto_name}
-                      {transaction.is_transfer && transaction.ziel_konto_name && (
-                        <span style={{ color: '#36a2eb' }}>
-                          {transaction.typ === 'transfer_out' ? ' → ' : ' ← '}
-                          {transaction.ziel_konto_name}
-                        </span>
-                      )}
-                      {!transaction.is_transfer && (
-                        <>
-                          {' • '}
-                          <span style={{ marginLeft: 4 }}>
+                    <div style={{ fontSize: 12, color: '#999', lineHeight: '1.4' }}>
+                      <div>{transaction.konto_name}
+                        {transaction.is_transfer && transaction.ziel_konto_name && (
+                          <span style={{ color: '#36a2eb' }}>
+                            {transaction.typ === 'transfer_out' ? ' → ' : ' ← '}
+                            {transaction.ziel_konto_name}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 2 }}>
+                        {!transaction.is_transfer && (
+                          <span>
                             {category?.parent_name ? (
                               <span>
                                 <span style={{ color: '#666' }}>{category.parent_name}</span>
@@ -372,15 +385,19 @@ export default function Dashboard() {
                             ) : (
                               transaction.kategorie_name
                             )}
+                            {' • '}
                           </span>
-                        </>
-                      )}
-                      • {formatDate(transaction.datum)}
+                        )}
+                        {formatDate(transaction.datum)}
+                      </div>
                     </div>
                   </div>
                 </div>
                 <div style={{ 
                   fontWeight: 'bold',
+                  fontSize: 14,
+                  textAlign: 'right',
+                  flexShrink: 0,
                   color: transaction.is_transfer ? 
                     (transaction.typ === 'transfer_out' ? '#f44336' : '#22c55e') :
                     (transaction.typ === 'einnahme' ? '#22c55e' : '#f44336')
@@ -424,7 +441,7 @@ export default function Dashboard() {
       )}
 
       {/* Floating Action Menu */}
-      <div style={{ position: 'fixed', bottom: 100, right: 20, zIndex: 99 }}>
+      <div style={{ position: 'fixed', bottom: 100, right: 16, zIndex: 99 }}>
         {showActionMenu && (
           <div style={{
             position: 'absolute',
@@ -434,7 +451,8 @@ export default function Dashboard() {
             borderRadius: 12,
             padding: 8,
             border: '1px solid #333',
-            minWidth: 200
+            minWidth: 180,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
           }}>
             <button
               onClick={() => {
@@ -443,7 +461,7 @@ export default function Dashboard() {
               }}
               style={{
                 width: '100%',
-                padding: '12px 16px',
+                padding: '10px 12px',
                 backgroundColor: 'transparent',
                 color: '#fff',
                 border: 'none',
@@ -452,7 +470,8 @@ export default function Dashboard() {
                 textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
-                marginBottom: 4
+                marginBottom: 4,
+                fontSize: 14
               }}
             >
               <span style={{ marginRight: 8 }}>💰</span>
@@ -465,7 +484,7 @@ export default function Dashboard() {
               }}
               style={{
                 width: '100%',
-                padding: '12px 16px',
+                padding: '10px 12px',
                 backgroundColor: 'transparent',
                 color: '#fff',
                 border: 'none',
@@ -473,7 +492,8 @@ export default function Dashboard() {
                 cursor: 'pointer',
                 textAlign: 'left',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                fontSize: 14
               }}
             >
               <span style={{ marginRight: 8 }}>🔄</span>
