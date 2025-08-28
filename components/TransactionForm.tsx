@@ -237,7 +237,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           <option value="">Konto auswählen</option>
           {accounts.map(account => (
             <option key={account.id} value={account.id}>
-              {account.name} ({account.typ}) - {account.saldo.toFixed(2)}€
+              {account.name} ({account.typ}) - {parseFloat(account.saldo as any || '0').toFixed(2)}€
             </option>
           ))}
         </select>

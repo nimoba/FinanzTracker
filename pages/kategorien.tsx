@@ -9,6 +9,8 @@ interface Category {
   farbe: string;
   parent_id?: number;
   parent_name?: string;
+  level?: number;
+  grandparent_name?: string;
 }
 
 interface CategoryFormData {
@@ -179,10 +181,15 @@ export default function CategoriesPage() {
     width: '100%',
   };
 
-  // Group categories by parent-child relationship
-  const mainCategories = categories.filter(cat => !cat.parent_id);
-  const getSubcategories = (parentId: number) => 
-    categories.filter(cat => cat.parent_id === parentId);
+  // Group categories by level
+  const level1Categories = categories.filter(cat => cat.level === 1 || (!cat.parent_id && !cat.level));
+  const level2Categories = categories.filter(cat => cat.level === 2 || (cat.parent_id && !cat.grandparent_name));
+  const level3Categories = categories.filter(cat => cat.level === 3 || (cat.parent_id && cat.grandparent_name));
+  
+  const getLevel2Categories = (level1Id: number) => 
+    level2Categories.filter(cat => cat.parent_id === level1Id);
+  const getLevel3Categories = (level2Id: number) => 
+    level3Categories.filter(cat => cat.parent_id === level2Id);
 
   if (loading) {
     return (
@@ -215,60 +222,107 @@ export default function CategoriesPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         <div>
           <h2 style={{ color: '#22c55e', marginBottom: '16px' }}>💰 Einnahmen</h2>
-          {mainCategories
+          {level1Categories
             .filter(cat => cat.typ === 'einnahme')
-            .map(category => (
-              <div key={category.id}>
+            .map(level1 => (
+              <div key={level1.id}>
+                {/* Level 1 Category */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <span style={{ fontSize: '20px', marginRight: '12px' }}>
-                      {category.icon}
+                      {level1.icon}
                     </span>
                     <div>
-                      <div style={{ fontWeight: 'bold' }}>{category.name}</div>
+                      <div style={{ fontWeight: 'bold' }}>{level1.name}</div>
                       <div style={{ fontSize: '12px', color: '#666' }}>
-                        {getSubcategories(category.id).length} Unterkategorien
+                        Level 1 - {getLevel2Categories(level1.id).length} Unterkategorien
                       </div>
                     </div>
                   </div>
                   <div>
                     <button
-                      onClick={() => handleEdit(category)}
+                      onClick={() => handleEdit(level1)}
                       style={buttonStyle}
                     >
                       Bearbeiten
                     </button>
                     <button
-                      onClick={() => handleDelete(category.id)}
+                      onClick={() => handleDelete(level1.id)}
                       style={{ ...buttonStyle, backgroundColor: '#f44336' }}
                     >
                       Löschen
                     </button>
                   </div>
                 </div>
-                {getSubcategories(category.id).map(subcat => (
-                  <div key={subcat.id} style={subcategoryStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ marginRight: '12px' }}>↳</span>
-                      <span style={{ fontSize: '16px', marginRight: '8px' }}>
-                        {subcat.icon}
-                      </span>
-                      <span>{subcat.name}</span>
+
+                {/* Level 2 Categories */}
+                {getLevel2Categories(level1.id).map(level2 => (
+                  <div key={level2.id}>
+                    <div style={subcategoryStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ marginRight: '12px' }}>↳</span>
+                        <span style={{ fontSize: '16px', marginRight: '8px' }}>
+                          {level2.icon}
+                        </span>
+                        <div>
+                          <span>{level2.name}</span>
+                          <div style={{ fontSize: '10px', color: '#999' }}>
+                            Level 2 - {getLevel3Categories(level2.id).length} Details
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => handleEdit(level2)}
+                          style={buttonStyle}
+                        >
+                          Bearbeiten
+                        </button>
+                        <button
+                          onClick={() => handleDelete(level2.id)}
+                          style={{ ...buttonStyle, backgroundColor: '#f44336' }}
+                        >
+                          Löschen
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <button
-                        onClick={() => handleEdit(subcat)}
-                        style={buttonStyle}
-                      >
-                        Bearbeiten
-                      </button>
-                      <button
-                        onClick={() => handleDelete(subcat.id)}
-                        style={{ ...buttonStyle, backgroundColor: '#f44336' }}
-                      >
-                        Löschen
-                      </button>
-                    </div>
+
+                    {/* Level 3 Categories */}
+                    {getLevel3Categories(level2.id).map(level3 => (
+                      <div key={level3.id} style={{
+                        ...subcategoryStyle,
+                        marginLeft: '64px',
+                        backgroundColor: '#2a2a2a',
+                        border: '1px solid #555',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{ marginRight: '12px' }}>↳↳</span>
+                          <span style={{ fontSize: '14px', marginRight: '8px' }}>
+                            {level3.icon}
+                          </span>
+                          <div>
+                            <span>{level3.name}</span>
+                            <div style={{ fontSize: '10px', color: '#999' }}>
+                              Level 3
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <button
+                            onClick={() => handleEdit(level3)}
+                            style={{ ...buttonStyle, fontSize: '12px', padding: '6px 8px' }}
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            onClick={() => handleDelete(level3.id)}
+                            style={{ ...buttonStyle, backgroundColor: '#f44336', fontSize: '12px', padding: '6px 8px' }}
+                          >
+                            Löschen
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -277,60 +331,107 @@ export default function CategoriesPage() {
 
         <div>
           <h2 style={{ color: '#f44336', marginBottom: '16px' }}>💸 Ausgaben</h2>
-          {mainCategories
+          {level1Categories
             .filter(cat => cat.typ === 'ausgabe')
-            .map(category => (
-              <div key={category.id}>
+            .map(level1 => (
+              <div key={level1.id}>
+                {/* Level 1 Category */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <span style={{ fontSize: '20px', marginRight: '12px' }}>
-                      {category.icon}
+                      {level1.icon}
                     </span>
                     <div>
-                      <div style={{ fontWeight: 'bold' }}>{category.name}</div>
+                      <div style={{ fontWeight: 'bold' }}>{level1.name}</div>
                       <div style={{ fontSize: '12px', color: '#666' }}>
-                        {getSubcategories(category.id).length} Unterkategorien
+                        Level 1 - {getLevel2Categories(level1.id).length} Unterkategorien
                       </div>
                     </div>
                   </div>
                   <div>
                     <button
-                      onClick={() => handleEdit(category)}
+                      onClick={() => handleEdit(level1)}
                       style={buttonStyle}
                     >
                       Bearbeiten
                     </button>
                     <button
-                      onClick={() => handleDelete(category.id)}
+                      onClick={() => handleDelete(level1.id)}
                       style={{ ...buttonStyle, backgroundColor: '#f44336' }}
                     >
                       Löschen
                     </button>
                   </div>
                 </div>
-                {getSubcategories(category.id).map(subcat => (
-                  <div key={subcat.id} style={subcategoryStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ marginRight: '12px' }}>↳</span>
-                      <span style={{ fontSize: '16px', marginRight: '8px' }}>
-                        {subcat.icon}
-                      </span>
-                      <span>{subcat.name}</span>
+
+                {/* Level 2 Categories */}
+                {getLevel2Categories(level1.id).map(level2 => (
+                  <div key={level2.id}>
+                    <div style={subcategoryStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ marginRight: '12px' }}>↳</span>
+                        <span style={{ fontSize: '16px', marginRight: '8px' }}>
+                          {level2.icon}
+                        </span>
+                        <div>
+                          <span>{level2.name}</span>
+                          <div style={{ fontSize: '10px', color: '#999' }}>
+                            Level 2 - {getLevel3Categories(level2.id).length} Details
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => handleEdit(level2)}
+                          style={buttonStyle}
+                        >
+                          Bearbeiten
+                        </button>
+                        <button
+                          onClick={() => handleDelete(level2.id)}
+                          style={{ ...buttonStyle, backgroundColor: '#f44336' }}
+                        >
+                          Löschen
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <button
-                        onClick={() => handleEdit(subcat)}
-                        style={buttonStyle}
-                      >
-                        Bearbeiten
-                      </button>
-                      <button
-                        onClick={() => handleDelete(subcat.id)}
-                        style={{ ...buttonStyle, backgroundColor: '#f44336' }}
-                      >
-                        Löschen
-                      </button>
-                    </div>
+
+                    {/* Level 3 Categories */}
+                    {getLevel3Categories(level2.id).map(level3 => (
+                      <div key={level3.id} style={{
+                        ...subcategoryStyle,
+                        marginLeft: '64px',
+                        backgroundColor: '#2a2a2a',
+                        border: '1px solid #555',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{ marginRight: '12px' }}>↳↳</span>
+                          <span style={{ fontSize: '14px', marginRight: '8px' }}>
+                            {level3.icon}
+                          </span>
+                          <div>
+                            <span>{level3.name}</span>
+                            <div style={{ fontSize: '10px', color: '#999' }}>
+                              Level 3
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <button
+                            onClick={() => handleEdit(level3)}
+                            style={{ ...buttonStyle, fontSize: '12px', padding: '6px 8px' }}
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            onClick={() => handleDelete(level3.id)}
+                            style={{ ...buttonStyle, backgroundColor: '#f44336', fontSize: '12px', padding: '6px 8px' }}
+                          >
+                            Löschen
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -390,12 +491,19 @@ export default function CategoriesPage() {
               onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
               style={inputStyle}
             >
-              <option value="">Hauptkategorie (keine Übergeordnete)</option>
-              {mainCategories
+              <option value="">Hauptkategorie (Level 1)</option>
+              {level1Categories
                 .filter(cat => cat.typ === formData.typ)
                 .map(category => (
                   <option key={category.id} value={category.id}>
-                    {category.icon} {category.name}
+                    {category.icon} {category.name} (Level 1)
+                  </option>
+                ))}
+              {level2Categories
+                .filter(cat => cat.typ === formData.typ)
+                .map(category => (
+                  <option key={category.id} value={category.id}>
+                    ↳ {category.icon} {category.name} (Level 2)
                   </option>
                 ))}
             </select>
