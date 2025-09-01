@@ -2,9 +2,9 @@ import { useRouter } from 'next/router';
 
 const tabs = [
   { path: '/', icon: '🏠', label: 'Home' },
+  { path: '/portfolio', icon: '📊', label: 'Portfolio' },
   { path: '/finanzen/transaktionen', icon: '💳', label: 'Transaktionen' },
   { path: '/finanzen/konten', icon: '🏦', label: 'Konten' },
-  { path: '/finanzen/budgets', icon: '📊', label: 'Budgets' },
   { path: '/finanzen/analysen', icon: '📈', label: 'Analysen' },
 ];
 
