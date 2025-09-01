@@ -362,7 +362,12 @@ export default function Dashboard() {
           <AccountGaugeChart
             accounts={selectedAccounts}
             title="💰 Gesamtbalance"
-            targetAmount={Math.max(Math.abs(selectedAccounts.reduce((sum, acc) => sum + acc.saldo, 0)) * 1.5, 1000)}
+            historicalBalances={[
+              // Simulated data - replace with real API call later
+              { month: '2025-08-01', balance: 1200 },
+              { month: '2025-07-01', balance: 1100 },
+              { month: '2025-06-01', balance: 950 }
+            ]}
           />
         </div>
       )}
@@ -372,7 +377,6 @@ export default function Dashboard() {
         Letzte Transaktionen
         {categories.filter(cat => cat.parent_id).length > 0 && (
           <span style={{ fontSize: 14, color: '#4caf50', marginLeft: 8 }}>
-            ✅ Mit Unterkategorien
           </span>
         )}
       </h2>

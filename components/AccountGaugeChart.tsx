@@ -21,38 +21,73 @@ interface Account {
 interface AccountGaugeChartProps {
   accounts: Account[];
   title: string;
-  targetAmount?: number;
+  historicalBalances?: Array<{month: string, balance: number}>;
 }
 
-export default function AccountGaugeChart({ accounts, title, targetAmount }: AccountGaugeChartProps) {
+export default function AccountGaugeChart({ accounts, title, historicalBalances }: AccountGaugeChartProps) {
   const totalBalance = accounts.reduce((sum, account) => {
     const saldo = typeof account.saldo === 'number' ? account.saldo : parseFloat(account.saldo) || 0;
     return sum + saldo;
   }, 0);
-  const target = targetAmount || Math.max(Math.abs(totalBalance) * 1.5, 1000);
-  const absBalance = Math.abs(totalBalance);
-  const progress = target > 0 ? Math.min(absBalance / target, 1) : 0;
+
+  // Calculate weighted average of last 3 months
+  const calculateWeightedAverage = () => {
+    if (!historicalBalances || historicalBalances.length === 0) {
+      return 500; // Default base if no historical data
+    }
+
+    // Sort by month (newest first) and take last 3 months
+    const sortedBalances = historicalBalances
+      .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())
+      .slice(0, 3);
+
+    if (sortedBalances.length === 0) return 500;
+
+    // Weighted average: current month = 0.5, previous = 0.3, oldest = 0.2
+    const weights = [0.5, 0.3, 0.2];
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    sortedBalances.forEach((balance, index) => {
+      const weight = weights[index] || 0.1;
+      weightedSum += balance.balance * weight;
+      totalWeight += weight;
+    });
+
+    return totalWeight > 0 ? weightedSum / totalWeight : 500;
+  };
+
+  const baselineBalance = calculateWeightedAverage(); // This is the 50% mark
+  const range = Math.max(Math.abs(baselineBalance) * 2, 1000); // Total range for the gauge
+  const minValue = baselineBalance - range / 2; // Bottom of gauge
+  const maxValue = baselineBalance + range / 2; // Top of gauge
+  
+  // Calculate progress (0 = bottom of gauge, 0.5 = baseline, 1 = top of gauge)
+  const progress = Math.max(0, Math.min(1, (totalBalance - minValue) / range));
   const angle = progress * 180;
   
   const getProgressColor = (progress: number) => {
-    if (progress >= 0.8) return '#27ae60';
-    if (progress >= 0.6) return '#2ecc71';
-    if (progress >= 0.4) return '#f39c12';
-    return '#e74c3c';
+    if (progress >= 0.65) return '#27ae60'; // Well above baseline
+    if (progress >= 0.55) return '#2ecc71'; // Above baseline
+    if (progress >= 0.45) return '#f39c12'; // Around baseline
+    if (progress >= 0.35) return '#e67e22'; // Below baseline
+    return '#e74c3c'; // Well below baseline
   };
 
-  const remaining = Math.max(target - absBalance, 0);
+  // Create gauge data - show full semicircle with current position highlighted
+  const currentPortion = progress;
+  const remainingPortion = 1 - progress;
   
   const data = {
-    labels: ['Aktueller Stand', 'Bis Ziel'],
+    labels: ['Aktueller Stand', 'Verbleibendes'],
     datasets: [
       {
-        data: [absBalance, remaining],
-        backgroundColor: [getProgressColor(progress), '#e0e0e0'],
+        data: [currentPortion, remainingPortion],
+        backgroundColor: [getProgressColor(progress), '#333333'],
         borderWidth: 0,
         circumference: 180,
         rotation: -90,
-        borderRadius: 10,
+        borderRadius: 8,
         hoverOffset: 4,
       },
     ],
@@ -82,15 +117,29 @@ export default function AccountGaugeChart({ accounts, title, targetAmount }: Acc
   };
 
   const getBewertung = () => {
-    const isPositive = totalBalance >= 0;
-    if (!isPositive) {
-      return { farbe: '#e74c3c', text: 'Schulden! ⚠️' };
-    }
+    const diffFromBaseline = totalBalance - baselineBalance;
+    const percentDiff = baselineBalance !== 0 ? (diffFromBaseline / Math.abs(baselineBalance)) * 100 : 0;
     
-    if (progress >= 0.9) return { farbe: '#27ae60', text: 'Ausgezeichnet! 🎯' };
-    if (progress >= 0.7) return { farbe: '#2ecc71', text: 'Sehr gut! 💪' };
-    if (progress >= 0.5) return { farbe: '#f39c12', text: 'Gut! 👍' };
-    return { farbe: '#e74c3c', text: 'Ausbaubar 📈' };
+    if (progress >= 0.65) return { 
+      farbe: '#27ae60', 
+      text: `Sehr gut! +${Math.round(percentDiff)}% 🎯` 
+    };
+    if (progress >= 0.55) return { 
+      farbe: '#2ecc71', 
+      text: `Über Durchschnitt +${Math.round(percentDiff)}% 💪` 
+    };
+    if (progress >= 0.45) return { 
+      farbe: '#f39c12', 
+      text: `Um Durchschnitt ${Math.round(Math.abs(percentDiff))}% 👍` 
+    };
+    if (progress >= 0.35) return { 
+      farbe: '#e67e22', 
+      text: `Unter Durchschnitt ${Math.round(Math.abs(percentDiff))}% ⚠️` 
+    };
+    return { 
+      farbe: '#e74c3c', 
+      text: `Deutlich unter Durchschnitt ${Math.round(Math.abs(percentDiff))}% 📉` 
+    };
   };
 
   const bewertung = getBewertung();
@@ -116,14 +165,23 @@ export default function AccountGaugeChart({ accounts, title, targetAmount }: Acc
         alignItems: 'center',
         marginBottom: 16
       }}>
-        <h3 style={{
-          color: '#fff',
-          margin: 0,
-          fontSize: 16,
-          fontWeight: 'bold'
-        }}>
-          {title}
-        </h3>
+        <div>
+          <h3 style={{
+            color: '#fff',
+            margin: 0,
+            fontSize: 16,
+            fontWeight: 'bold'
+          }}>
+            {title}
+          </h3>
+          <div style={{
+            fontSize: 11,
+            color: '#999',
+            marginTop: 2
+          }}>
+            Durchschnitt 3 Monate: {formatCurrency(baselineBalance)}
+          </div>
+        </div>
         <span style={{
           fontSize: 12,
           color: bewertung.farbe,
