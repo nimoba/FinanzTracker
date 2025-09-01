@@ -9,14 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/react-datepicker": "^6.2.0",
     "@vercel/postgres": "^0.10.0",
     "chart.js": "^4.4.0",
+    "date-fns": "^4.1.0",
     "framer-motion": "^10.16.4",
     "gauge-chart": "^0.5.3",
     "next": "^14.2.32",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.2.0"
+    "react-datepicker": "^8.7.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^3.1.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

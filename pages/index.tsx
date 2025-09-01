@@ -7,6 +7,7 @@ import AccountCard from '@/components/AccountCard';
 import AccountGaugeChart from '@/components/AccountGaugeChart';
 import TransactionForm from '@/components/TransactionForm';
 import TransferForm from '@/components/TransferForm';
+import PartialCancelModal from '@/components/PartialCancelModal';
 
 interface Account {
   id: number;
@@ -38,6 +39,11 @@ interface Transaction {
   display_beschreibung?: string;
   ziel_konto_name?: string;
   transfer_id?: string;
+  status?: 'confirmed' | 'pending' | 'cancelled';
+  original_amount?: number;
+  pending_amount?: number;
+  cancelled_amount?: number;
+  auto_confirm_date?: string;
 }
 
 interface Category {
@@ -58,6 +64,8 @@ export default function Dashboard() {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showTransferForm, setShowTransferForm] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showPartialCancelModal, setShowPartialCancelModal] = useState(false);
+  const [selectedTransactionForCancel, setSelectedTransactionForCancel] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -174,6 +182,58 @@ export default function Dashboard() {
       console.error('Error saving transfer:', error);
     }
   };
+
+  const handleOpenPartialCancel = (transaction: Transaction) => {
+    setSelectedTransactionForCancel(transaction);
+    setShowPartialCancelModal(true);
+  };
+
+  const handlePartialCancel = async (cancelAmount: number, note: string) => {
+    if (!selectedTransactionForCancel) return;
+
+    try {
+      const response = await fetch(`/api/finanzen/transaktionen/${selectedTransactionForCancel.id}/partial-cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancelAmount, note }),
+      });
+
+      if (response.ok) {
+        setShowPartialCancelModal(false);
+        setSelectedTransactionForCancel(null);
+        loadDashboardData(); // Reload data to reflect changes
+      }
+    } catch (error) {
+      console.error('Error cancelling transaction:', error);
+      throw error;
+    }
+  };
+
+  const handleAutoConfirm = async () => {
+    try {
+      const response = await fetch('/api/finanzen/transaktionen/auto-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.confirmedCount > 0) {
+          loadDashboardData(); // Reload data to reflect changes
+          // Optionally show a notification about confirmed transactions
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-confirming transactions:', error);
+    }
+  };
+
+  // Auto-confirm on load
+  useEffect(() => {
+    if (!loading) {
+      handleAutoConfirm();
+    }
+  }, [loading]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('de-DE', {
@@ -391,13 +451,40 @@ export default function Dashboard() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>
-                    {transaction.is_transfer ? (
-                      transaction.typ === 'transfer_out' ? '📤' : '📥'
-                    ) : (
-                      transaction.kategorie_icon || '💰'
+                  <div style={{ position: 'relative', marginRight: 10, flexShrink: 0 }}>
+                    <span style={{ fontSize: 18 }}>
+                      {transaction.is_transfer ? (
+                        transaction.typ === 'transfer_out' ? '📤' : '📥'
+                      ) : (
+                        transaction.kategorie_icon || '💰'
+                      )}
+                    </span>
+                    {/* Pending status indicator */}
+                    {transaction.status === 'pending' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: -2,
+                        right: -2,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: '#f59e0b',
+                        border: '1px solid #fff'
+                      }} />
                     )}
-                  </span>
+                    {transaction.status === 'cancelled' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: -2,
+                        right: -2,
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: '#f44336',
+                        border: '1px solid #fff'
+                      }} />
+                    )}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ 
                       fontWeight: 'bold', 
@@ -436,10 +523,48 @@ export default function Dashboard() {
                           </span>
                         )}
                         {formatDate(transaction.datum)}
+                        {/* Show pending/cancelled status */}
+                        {transaction.status === 'pending' && (
+                          <span style={{ color: '#f59e0b', marginLeft: 8 }}>
+                            • ⏳ Ausstehend
+                          </span>
+                        )}
+                        {transaction.status === 'cancelled' && (
+                          <span style={{ color: '#f44336', marginLeft: 8 }}>
+                            • ❌ Storniert
+                          </span>
+                        )}
                       </div>
+                      {/* Show pending transaction details */}
+                      {transaction.status === 'pending' && (transaction.cancelled_amount || 0) > 0 && (
+                        <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                          Original: {formatCurrency(transaction.original_amount || transaction.betrag)} | 
+                          Storniert: {formatCurrency(transaction.cancelled_amount || 0)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                  {/* Partial cancel button for pending transactions */}
+                  {transaction.status === 'pending' && !transaction.is_transfer && 
+                   ((transaction.pending_amount || transaction.betrag) - (transaction.cancelled_amount || 0)) > 0.01 && (
+                    <button
+                      onClick={() => handleOpenPartialCancel(transaction)}
+                      style={{
+                        backgroundColor: '#f59e0b',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        fontSize: 10,
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Teilweise stornieren
+                    </button>
+                  )}
                 <div style={{ 
                   fontWeight: 'bold',
                   fontSize: 14,
@@ -569,6 +694,18 @@ export default function Dashboard() {
         <TransferForm
           onSave={handleSaveTransfer}
           onCancel={() => setShowTransferForm(false)}
+        />
+      )}
+
+      {showPartialCancelModal && selectedTransactionForCancel && (
+        <PartialCancelModal
+          transaction={selectedTransactionForCancel}
+          onCancel={() => {
+            setShowPartialCancelModal(false);
+            setSelectedTransactionForCancel(null);
+          }}
+          onConfirm={handlePartialCancel}
+          isLoading={false}
         />
       )}
 

@@ -27,6 +27,10 @@ interface Transaction {
   kategorie_id: number;
   datum: string;
   beschreibung: string;
+  status?: 'confirmed' | 'pending';
+  auto_confirm_date?: string;
+  original_amount?: number;
+  pending_amount?: number;
 }
 
 interface TransactionFormProps {
@@ -46,6 +50,8 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     kategorie_id: transaction?.kategorie_id || 0,
     datum: transaction?.datum || new Date().toISOString().split('T')[0],
     beschreibung: transaction?.beschreibung || '',
+    status: transaction?.status || 'confirmed' as 'confirmed' | 'pending',
+    auto_confirm_days: 14,
   });
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryParent, setNewCategoryParent] = useState('');
@@ -87,7 +93,17 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     e.preventDefault();
     if (!formData.konto_id || !formData.kategorie_id || formData.betrag <= 0) return;
     
-    await onSave(formData);
+    // Calculate auto_confirm_date for pending transactions
+    const submitData = { ...formData };
+    if (formData.status === 'pending') {
+      const autoConfirmDate = new Date();
+      autoConfirmDate.setDate(autoConfirmDate.getDate() + formData.auto_confirm_days);
+      submitData.auto_confirm_date = autoConfirmDate.toISOString().split('T')[0];
+      submitData.original_amount = formData.betrag;
+      submitData.pending_amount = formData.betrag;
+    }
+    
+    await onSave(submitData);
   };
 
   const handleCreateCategory = async () => {
@@ -227,6 +243,59 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
           style={inputStyle}
           required
         />
+
+        {/* Transaction Status */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 8, color: '#ccc', fontSize: 14 }}>
+            Status:
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, status: 'confirmed' })}
+              style={{
+                ...buttonStyle,
+                backgroundColor: formData.status === 'confirmed' ? '#22c55e' : 'transparent',
+                border: `2px solid ${formData.status === 'confirmed' ? '#22c55e' : '#555'}`,
+                flex: 1
+              }}
+            >
+              ✅ Bestätigt
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, status: 'pending' })}
+              style={{
+                ...buttonStyle,
+                backgroundColor: formData.status === 'pending' ? '#f59e0b' : 'transparent',
+                border: `2px solid ${formData.status === 'pending' ? '#f59e0b' : '#555'}`,
+                flex: 1
+              }}
+            >
+              ⏳ Ausstehend
+            </button>
+          </div>
+        </div>
+
+        {/* Auto-confirm days (only show for pending transactions) */}
+        {formData.status === 'pending' && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 8, color: '#ccc', fontSize: 14 }}>
+              Automatisch bestätigen nach (Tagen):
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={formData.auto_confirm_days || 14}
+              onChange={(e) => setFormData({ ...formData, auto_confirm_days: parseInt(e.target.value) || 14 })}
+              style={inputStyle}
+            />
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              Transaktion wird am {new Date(Date.now() + (formData.auto_confirm_days || 14) * 24 * 60 * 60 * 1000).toLocaleDateString('de-DE')} automatisch bestätigt
+            </div>
+          </div>
+        )}
 
         <select
           value={formData.konto_id}

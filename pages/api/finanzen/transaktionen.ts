@@ -98,7 +98,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         typ, 
         kategorie_id, 
         datum, 
-        beschreibung
+        beschreibung,
+        status = 'confirmed',
+        auto_confirm_date,
+        original_amount,
+        pending_amount
       } = req.body;
       
       // Validate required fields
@@ -115,22 +119,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await sql`BEGIN`;
       
       try {
-        // Create regular transaction
+        // Create regular transaction with pending support
         const { rows } = await sql`
-          INSERT INTO transaktionen (konto_id, betrag, typ, kategorie_id, datum, beschreibung)
-          VALUES (${konto_id}, ${betrag}, ${typ}, ${kategorie_id || null}, ${datum}, ${beschreibung || ''})
+          INSERT INTO transaktionen (
+            konto_id, betrag, typ, kategorie_id, datum, beschreibung,
+            status, auto_confirm_date, original_amount, pending_amount
+          )
+          VALUES (
+            ${konto_id}, ${betrag}, ${typ}, ${kategorie_id || null}, ${datum}, ${beschreibung || ''},
+            ${status}, ${auto_confirm_date || null}, ${original_amount || betrag}, ${pending_amount || betrag}
+          )
           RETURNING *
         `;
         
-        // Update account balance
-        const betragFloat = parseFloat(betrag);
-        const betragDelta = typ === 'einnahme' ? betragFloat : -Math.abs(betragFloat);
-        
+        // Record initial status in history
         await sql`
-          UPDATE konten 
-          SET saldo = saldo + ${betragDelta}
-          WHERE id = ${konto_id}
+          INSERT INTO transaction_status_history (transaction_id, status, amount, note)
+          VALUES (${rows[0].id}, ${status}, ${betrag}, 'Transaction created')
         `;
+        
+        // Update account balance (only for confirmed transactions)
+        if (status === 'confirmed') {
+          const betragFloat = parseFloat(betrag);
+          const betragDelta = typ === 'einnahme' ? betragFloat : -Math.abs(betragFloat);
+          
+          await sql`
+            UPDATE konten 
+            SET saldo = saldo + ${betragDelta}
+            WHERE id = ${konto_id}
+          `;
+        }
+        // For pending transactions, we might want to track "available balance" separately
+        // This depends on your business logic - pending transactions could reduce available balance
         
         await sql`COMMIT`;
         res.status(201).json(rows[0]);
