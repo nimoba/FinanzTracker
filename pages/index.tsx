@@ -565,20 +565,21 @@ export default function Dashboard() {
                       Teilweise stornieren
                     </button>
                   )}
-                <div style={{ 
-                  fontWeight: 'bold',
-                  fontSize: 14,
-                  textAlign: 'right',
-                  flexShrink: 0,
-                  color: transaction.is_transfer ? 
-                    (transaction.typ === 'transfer_out' ? '#f44336' : '#22c55e') :
-                    (transaction.typ === 'einnahme' ? '#22c55e' : '#f44336')
-                }}>
-                  {transaction.is_transfer ? (
-                    transaction.typ === 'transfer_out' ? '-' : '+'
-                  ) : (
-                    transaction.typ === 'einnahme' ? '+' : '-'
-                  )}{formatCurrency(Math.abs(transaction.betrag))}
+                  <div style={{ 
+                    fontWeight: 'bold',
+                    fontSize: 14,
+                    textAlign: 'right',
+                    flexShrink: 0,
+                    color: transaction.is_transfer ? 
+                      (transaction.typ === 'transfer_out' ? '#f44336' : '#22c55e') :
+                      (transaction.typ === 'einnahme' ? '#22c55e' : '#f44336')
+                  }}>
+                    {transaction.is_transfer ? (
+                      transaction.typ === 'transfer_out' ? '-' : '+'
+                    ) : (
+                      transaction.typ === 'einnahme' ? '+' : '-'
+                    )}{formatCurrency(Math.abs(transaction.betrag))}
+                  </div>
                 </div>
               </div>
             );
