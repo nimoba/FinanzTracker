@@ -29,8 +29,9 @@ export default function AccountGaugeChart({ accounts, title, targetAmount }: Acc
     const saldo = typeof account.saldo === 'number' ? account.saldo : parseFloat(account.saldo) || 0;
     return sum + saldo;
   }, 0);
-  const target = targetAmount || Math.abs(totalBalance) * 1.2;
-  const progress = Math.min(Math.abs(totalBalance) / target, 1);
+  const target = targetAmount || Math.max(Math.abs(totalBalance) * 1.5, 1000);
+  const absBalance = Math.abs(totalBalance);
+  const progress = target > 0 ? Math.min(absBalance / target, 1) : 0;
   const angle = progress * 180;
   
   const getProgressColor = (progress: number) => {
@@ -40,13 +41,13 @@ export default function AccountGaugeChart({ accounts, title, targetAmount }: Acc
     return '#e74c3c';
   };
 
-  const remaining = Math.max(target - Math.abs(totalBalance), 0);
+  const remaining = Math.max(target - absBalance, 0);
   
   const data = {
     labels: ['Aktueller Stand', 'Bis Ziel'],
     datasets: [
       {
-        data: [Math.abs(totalBalance), remaining],
+        data: [absBalance, remaining],
         backgroundColor: [getProgressColor(progress), '#e0e0e0'],
         borderWidth: 0,
         circumference: 180,
@@ -140,7 +141,7 @@ export default function AccountGaugeChart({ accounts, title, targetAmount }: Acc
         textAlign: 'center',
         position: 'relative'
       }}>
-        <Doughnut data={data} options={options} />
+        <Doughnut key={`gauge-${accounts.map(a => a.id + '_' + a.saldo).join('-')}`} data={data} options={options} />
         
         <div style={{
           position: 'absolute',
