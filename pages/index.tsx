@@ -363,10 +363,7 @@ export default function Dashboard() {
             accounts={selectedAccounts}
             title="💰 Gesamtbalance"
             historicalBalances={[
-              // Simulated data - replace with real API call later
-              { month: '2025-08-01', balance: 1200 },
-              { month: '2025-07-01', balance: 1100 },
-              { month: '2025-06-01', balance: 950 }
+              // No historical data yet - will use current balance as baseline
             ]}
           />
         </div>

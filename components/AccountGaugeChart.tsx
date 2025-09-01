@@ -30,25 +30,44 @@ export default function AccountGaugeChart({ accounts, title, historicalBalances 
     return sum + saldo;
   }, 0);
 
-  // Calculate weighted average of last 3 months
+  // Calculate weighted average of last 3 months (starting calculations from Oct 1, 2025)
   const calculateWeightedAverage = () => {
-    if (!historicalBalances || historicalBalances.length === 0) {
-      return 500; // Default base if no historical data
+    const startDate = new Date('2025-09-01'); // Data collection starts Sept 1
+    const avgStartDate = new Date('2025-10-01'); // Average calculation starts Oct 1
+    const now = new Date();
+    
+    // Before Oct 1, 2025: Always use 500€ as baseline
+    if (now < avgStartDate) {
+      return 500;
     }
 
-    // Sort by month (newest first) and take last 3 months
-    const sortedBalances = historicalBalances
+    // After Oct 1, 2025: Use weighted average system
+    if (!historicalBalances || historicalBalances.length === 0) {
+      return 500; // Fallback if no data available
+    }
+
+    // Filter balances to only include data from Sept 1, 2025 onwards
+    const validBalances = historicalBalances
+      .filter(balance => new Date(balance.month) >= startDate)
       .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())
-      .slice(0, 3);
+      .slice(0, 3); // Take last 3 months maximum
 
-    if (sortedBalances.length === 0) return 500;
+    if (validBalances.length === 0) {
+      return 500; // Fallback if no valid data
+    }
 
-    // Weighted average: current month = 0.5, previous = 0.3, oldest = 0.2
+    // If we have less than 3 months of data, use simple average
+    if (validBalances.length < 3) {
+      const average = validBalances.reduce((sum, balance) => sum + balance.balance, 0) / validBalances.length;
+      return average;
+    }
+
+    // Weighted average for 3+ months: current = 0.5, previous = 0.3, oldest = 0.2
     const weights = [0.5, 0.3, 0.2];
     let weightedSum = 0;
     let totalWeight = 0;
 
-    sortedBalances.forEach((balance, index) => {
+    validBalances.forEach((balance, index) => {
       const weight = weights[index] || 0.1;
       weightedSum += balance.balance * weight;
       totalWeight += weight;
