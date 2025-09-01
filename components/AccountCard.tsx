@@ -36,7 +36,8 @@ export default function AccountCard({ account, isSelected, onToggle }: AccountCa
     position: 'relative' as const,
   };
 
-  const balanceColor = account.saldo >= 0 ? '#4caf50' : '#f44336';
+  const saldo = typeof account.saldo === 'number' ? account.saldo : parseFloat(account.saldo) || 0;
+  const balanceColor = saldo >= 0 ? '#4caf50' : '#f44336';
   
   const getAccountIcon = (typ: string) => {
     switch (typ.toLowerCase()) {
@@ -93,7 +94,7 @@ export default function AccountCard({ account, isSelected, onToggle }: AccountCa
           color: balanceColor,
           lineHeight: '1.1'
         }}>
-          {formatCurrency(account.saldo)}
+          {formatCurrency(saldo)}
         </div>
         
         <div style={{

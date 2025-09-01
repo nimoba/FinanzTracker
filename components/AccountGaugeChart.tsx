@@ -25,7 +25,10 @@ interface AccountGaugeChartProps {
 }
 
 export default function AccountGaugeChart({ accounts, title, targetAmount }: AccountGaugeChartProps) {
-  const totalBalance = accounts.reduce((sum, account) => sum + account.saldo, 0);
+  const totalBalance = accounts.reduce((sum, account) => {
+    const saldo = typeof account.saldo === 'number' ? account.saldo : parseFloat(account.saldo) || 0;
+    return sum + saldo;
+  }, 0);
   const target = targetAmount || Math.abs(totalBalance) * 1.2;
   const progress = Math.min(Math.abs(totalBalance) / target, 1);
   const angle = progress * 180;
@@ -225,7 +228,7 @@ export default function AccountGaugeChart({ accounts, title, targetAmount }: Acc
                   backgroundColor: account.farbe
                 }}
               />
-              {account.name}: {formatCurrency(account.saldo)}
+              {account.name}: {formatCurrency(typeof account.saldo === 'number' ? account.saldo : parseFloat(account.saldo) || 0)}
             </div>
           ))}
         </div>
