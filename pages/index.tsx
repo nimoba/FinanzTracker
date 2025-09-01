@@ -3,9 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import FloatingTabBar from '@/components/FloatingTabBar';
-import StatsCard from '@/components/StatsCard';
+import AccountCard from '@/components/AccountCard';
+import AccountGaugeChart from '@/components/AccountGaugeChart';
 import TransactionForm from '@/components/TransactionForm';
 import TransferForm from '@/components/TransferForm';
+
+interface Account {
+  id: number;
+  name: string;
+  typ: string;
+  saldo: number;
+  farbe: string;
+}
 
 interface DashboardData {
   gesamtsaldo: number;
@@ -42,7 +51,8 @@ interface Category {
 
 export default function Dashboard() {
   const router = useRouter();
-  const [summary, setSummary] = useState<DashboardData | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<number[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -56,18 +66,25 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [summaryResponse, transactionsResponse, categoriesResponse] = await Promise.all([
-        fetch('/api/finanzen/analysen?type=summary'),
+      const [accountsResponse, transactionsResponse, categoriesResponse] = await Promise.all([
+        fetch('/api/finanzen/konten'),
         fetch('/api/finanzen/transaktionen?limit=10'),
         fetch('/api/finanzen/kategorien')
       ]);
 
-      if (summaryResponse.ok) {
-        const summaryData = await summaryResponse.json();
-        setSummary(summaryData);
+      if (accountsResponse.ok) {
+        const accountsData = await accountsResponse.json();
+        if (Array.isArray(accountsData)) {
+          setAccounts(accountsData);
+          // Initially select all accounts
+          setSelectedAccountIds(accountsData.map((acc: Account) => acc.id));
+        } else {
+          console.error('Invalid accounts data format:', accountsData);
+          setAccounts([]);
+        }
       } else {
-        console.error('Summary API Error:', summaryResponse.status);
-        setSummary(null);
+        console.error('Accounts API Error:', accountsResponse.status);
+        setAccounts([]);
       }
 
       if (transactionsResponse.ok) {
@@ -98,13 +115,31 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      setSummary(null);
+      setAccounts([]);
       setTransactions([]);
       setCategories([]);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleToggleAccount = (accountId: number) => {
+    setSelectedAccountIds(prev => 
+      prev.includes(accountId) 
+        ? prev.filter(id => id !== accountId)
+        : [...prev, accountId]
+    );
+  };
+
+  const selectedAccounts = accounts.filter(account => 
+    selectedAccountIds.includes(account.id)
+  );
+
+  const filteredTransactions = transactions.filter(transaction => {
+    const accountName = transaction.konto_name;
+    const account = accounts.find(acc => acc.name === accountName);
+    return account ? selectedAccountIds.includes(account.id) : true;
+  });
 
   const handleSaveTransaction = async (transactionData: any) => {
     try {
@@ -292,35 +327,46 @@ export default function Dashboard() {
         </div>
       )}
 
-      {summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12 }}>
-          <StatsCard
-            icon="💰"
-            title="Gesamtsaldo"
-            value={formatCurrency(summary.gesamtsaldo || 0)}
-            color={summary.gesamtsaldo >= 0 ? "#4caf50" : "#f44336"}
-          />
-          <StatsCard
-            icon="📈"
-            title="Monatliche Einnahmen"
-            value={formatCurrency(summary.monatliche_einnahmen || 0)}
-            color="#22c55e"
-          />
-          <StatsCard
-            icon="📉"
-            title="Monatliche Ausgaben"
-            value={formatCurrency(summary.monatliche_ausgaben || 0)}
-            color="#f44336"
-          />
-          <StatsCard
-            icon="📊"
-            title="Budget-Status"
-            value={`${summary.ueberschrittene_budgets || 0} / ${summary.gesamt_budgets || 0}`}
-            subtitle="Überschrittene Budgets"
-            color={summary.ueberschrittene_budgets > 0 ? "#f44336" : "#4caf50"}
+      {/* Account Cards */}
+      {accounts.length > 0 && (
+        <div style={{
+          marginBottom: 20
+        }}>
+          <h2 style={{ ...sectionTitleStyle, marginTop: 0, marginBottom: 12 }}>
+            Konten
+          </h2>
+          <div style={{
+            display: 'flex',
+            gap: 12,
+            overflowX: 'auto',
+            paddingBottom: 8,
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
+            {accounts.map((account) => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                isSelected={selectedAccountIds.includes(account.id)}
+                onToggle={handleToggleAccount}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Gauge Charts */}
+      {selectedAccounts.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={sectionTitleStyle}>Balance Übersicht</h2>
+          <AccountGaugeChart
+            accounts={selectedAccounts}
+            title="💰 Gesamtbalance"
+            targetAmount={Math.max(Math.abs(selectedAccounts.reduce((sum, acc) => sum + acc.saldo, 0)) * 1.5, 1000)}
           />
         </div>
       )}
+
 
       <h2 style={sectionTitleStyle}>
         Letzte Transaktionen
@@ -331,16 +377,16 @@ export default function Dashboard() {
         )}
       </h2>
       
-      {transactions.length > 0 ? (
+      {filteredTransactions.length > 0 ? (
         <div style={transactionListStyle}>
-          {transactions.map((transaction, index) => {
+          {filteredTransactions.map((transaction, index) => {
             const category = categories.find(cat => cat.id === transaction.kategorie_id);
             return (
               <div 
                 key={transaction.id} 
                 style={{
                   ...transactionItemStyle,
-                  borderBottom: index === transactions.length - 1 ? 'none' : '1px solid #333'
+                  borderBottom: index === filteredTransactions.length - 1 ? 'none' : '1px solid #333'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
