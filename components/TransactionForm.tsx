@@ -94,7 +94,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     if (!formData.konto_id || !formData.kategorie_id || formData.betrag <= 0) return;
     
     // Calculate auto_confirm_date for pending transactions
-    const submitData = { ...formData };
+    const submitData: any = { ...formData };
     if (formData.status === 'pending') {
       const autoConfirmDate = new Date();
       autoConfirmDate.setDate(autoConfirmDate.getDate() + formData.auto_confirm_days);
