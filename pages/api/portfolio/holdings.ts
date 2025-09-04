@@ -6,196 +6,97 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'GET') {
       const { portfolio_id } = req.query;
 
-      let query;
-      let params: any[] = [];
-
-      if (portfolio_id) {
-        // Get holdings for specific portfolio
-        query = `
-          SELECT 
-            h.*,
-            p.name as portfolio_name,
+      let query = portfolio_id
+        ? `SELECT h.*, 
             (h.total_quantity * h.current_price) as current_value,
             (h.total_quantity * h.avg_purchase_price) as total_cost,
             (h.total_quantity * h.current_price) - (h.total_quantity * h.avg_purchase_price) as unrealized_pnl,
-            CASE 
-              WHEN h.avg_purchase_price > 0 THEN 
-                (((h.current_price - h.avg_purchase_price) / h.avg_purchase_price) * 100)
-              ELSE 0 
-            END as unrealized_pnl_percent
+            CASE WHEN h.avg_purchase_price > 0 THEN 
+              (((h.current_price - h.avg_purchase_price) / h.avg_purchase_price) * 100)
+            ELSE 0 END as unrealized_pnl_percent
           FROM holdings h
-          JOIN portfolios p ON h.portfolio_id = p.id
           WHERE h.portfolio_id = $1
-          ORDER BY h.current_value DESC
-        `;
-        params = [portfolio_id];
-      } else {
-        // Get all holdings across portfolios
-        query = `
-          SELECT 
-            h.*,
-            p.name as portfolio_name,
+          ORDER BY h.current_value DESC`
+        : `SELECT h.*, 
             (h.total_quantity * h.current_price) as current_value,
             (h.total_quantity * h.avg_purchase_price) as total_cost,
             (h.total_quantity * h.current_price) - (h.total_quantity * h.avg_purchase_price) as unrealized_pnl,
-            CASE 
-              WHEN h.avg_purchase_price > 0 THEN 
-                (((h.current_price - h.avg_purchase_price) / h.avg_purchase_price) * 100)
-              ELSE 0 
-            END as unrealized_pnl_percent
+            CASE WHEN h.avg_purchase_price > 0 THEN 
+              (((h.current_price - h.avg_purchase_price) / h.avg_purchase_price) * 100)
+            ELSE 0 END as unrealized_pnl_percent
           FROM holdings h
           JOIN portfolios p ON h.portfolio_id = p.id
           WHERE p.user_id = 1
-          ORDER BY h.current_value DESC
-        `;
-      }
+          ORDER BY h.current_value DESC`;
 
+      const params = portfolio_id ? [portfolio_id] : [];
       const { rows } = await sql.query(query, params);
       res.status(200).json(rows);
 
     } else if (req.method === 'POST') {
-      // Add new holding or buy more shares
+      // Add new holding
       const { 
         portfolio_id, 
         symbol, 
         name, 
         quantity, 
         price, 
-        fees = 0, 
+        fees, 
         date, 
-        note,
-        type = 'buy' 
+        note 
       } = req.body;
-
-      if (!portfolio_id || !symbol || !quantity || !price || !date) {
-        return res.status(400).json({ 
-          error: 'Portfolio ID, symbol, quantity, price, and date are required' 
-        });
-      }
 
       await sql`BEGIN`;
 
       try {
-        // Check if holding already exists
-        const { rows: existingHoldings } = await sql`
+        // Check if holding exists
+        const { rows: existing } = await sql`
           SELECT * FROM holdings 
           WHERE portfolio_id = ${portfolio_id} AND symbol = ${symbol.toUpperCase()}
         `;
 
         let holdingId;
-        let newQuantity = parseFloat(quantity);
-        let newAvgPrice = parseFloat(price);
-
-        if (existingHoldings.length > 0) {
+        if (existing.length > 0) {
           // Update existing holding
-          const holding = existingHoldings[0];
-          const currentQuantity = parseFloat(holding.total_quantity);
-          const currentAvgPrice = parseFloat(holding.avg_purchase_price);
+          const newQuantity = existing[0].total_quantity + quantity;
+          const totalCost = (existing[0].total_quantity * existing[0].avg_purchase_price) + 
+                          (quantity * price) + fees;
+          const newAvgPrice = totalCost / newQuantity;
 
-          if (type === 'buy') {
-            // Calculate new average price
-            const totalCost = (currentQuantity * currentAvgPrice) + (newQuantity * newAvgPrice) + parseFloat(fees);
-            newQuantity = currentQuantity + newQuantity;
-            newAvgPrice = totalCost / newQuantity;
-          } else if (type === 'sell') {
-            newQuantity = currentQuantity - newQuantity;
-            newAvgPrice = currentAvgPrice; // Keep same avg price for remaining shares
-            
-            if (newQuantity < 0) {
-              throw new Error('Cannot sell more shares than owned');
-            }
-          }
-
-          // Update holding
           await sql`
             UPDATE holdings 
-            SET 
-              total_quantity = ${newQuantity},
-              avg_purchase_price = ${newAvgPrice},
-              name = ${name || holding.name},
-              last_updated = NOW()
-            WHERE id = ${holding.id}
+            SET total_quantity = ${newQuantity}, avg_purchase_price = ${newAvgPrice}
+            WHERE id = ${existing[0].id}
           `;
-          holdingId = holding.id;
-
+          holdingId = existing[0].id;
         } else {
-          if (type === 'sell') {
-            return res.status(400).json({ error: 'Cannot sell shares you do not own' });
-          }
-
           // Create new holding
-          const { rows: newHoldings } = await sql`
+          const { rows: newHolding } = await sql`
             INSERT INTO holdings (
               portfolio_id, symbol, name, total_quantity, 
               avg_purchase_price, current_price
             )
             VALUES (
               ${portfolio_id}, ${symbol.toUpperCase()}, ${name}, 
-              ${newQuantity}, ${newAvgPrice}, ${price}
+              ${quantity}, ${price}, ${price}
             )
-            RETURNING *
+            RETURNING id
           `;
-          holdingId = newHoldings[0].id;
+          holdingId = newHolding[0].id;
         }
 
-        // Record the transaction
+        // Record transaction
         await sql`
           INSERT INTO stock_transactions (
             holding_id, type, quantity, price, fees, date, note
           )
           VALUES (
-            ${holdingId}, ${type}, ${Math.abs(parseFloat(quantity))}, 
-            ${price}, ${fees}, ${date}, ${note || ''}
+            ${holdingId}, 'buy', ${quantity}, ${price}, ${fees || 0}, ${date}, ${note || ''}
           )
         `;
 
         await sql`COMMIT`;
-
-        // Return updated holding
-        const { rows: updatedHolding } = await sql`
-          SELECT 
-            h.*,
-            (h.total_quantity * h.current_price) as current_value,
-            (h.total_quantity * h.avg_purchase_price) as total_cost
-          FROM holdings h
-          WHERE h.id = ${holdingId}
-        `;
-
-        res.status(201).json(updatedHolding[0]);
-
-      } catch (error) {
-        await sql`ROLLBACK`;
-        throw error;
-      }
-
-    } else if (req.method === 'DELETE') {
-      // Remove holding completely
-      const { id } = req.query;
-
-      if (!id) {
-        return res.status(400).json({ error: 'Holding ID is required' });
-      }
-
-      await sql`BEGIN`;
-
-      try {
-        // Delete all transactions first
-        await sql`
-          DELETE FROM stock_transactions WHERE holding_id = ${id as string}
-        `;
-
-        // Delete the holding
-        const { rows } = await sql`
-          DELETE FROM holdings WHERE id = ${id as string}
-          RETURNING *
-        `;
-
-        if (rows.length === 0) {
-          return res.status(404).json({ error: 'Holding not found' });
-        }
-
-        await sql`COMMIT`;
-        res.status(200).json({ success: true, deletedHolding: rows[0] });
+        res.status(201).json({ success: true });
 
       } catch (error) {
         await sql`ROLLBACK`;

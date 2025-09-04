@@ -51,7 +51,7 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     datum: transaction?.datum || new Date().toISOString().split('T')[0],
     beschreibung: transaction?.beschreibung || '',
     status: transaction?.status || 'confirmed' as 'confirmed' | 'pending',
-    auto_confirm_days: 14,
+    auto_confirm_days: 28,
   });
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryParent, setNewCategoryParent] = useState('');
@@ -94,17 +94,17 @@ export default function TransactionForm({ transaction, onSave, onCancel, isLoadi
     if (!formData.konto_id || !formData.kategorie_id || formData.betrag <= 0) return;
     
     // Calculate auto_confirm_date for pending transactions
-    const submitData: any = { ...formData };
-    if (formData.status === 'pending') {
-      const autoConfirmDate = new Date();
-      autoConfirmDate.setDate(autoConfirmDate.getDate() + formData.auto_confirm_days);
-      submitData.auto_confirm_date = autoConfirmDate.toISOString().split('T')[0];
-      submitData.original_amount = formData.betrag;
-      submitData.pending_amount = formData.betrag;
-    }
-    
-    await onSave(submitData);
-  };
+      const submitData: any = { ...formData };
+      if (formData.status === 'pending') {
+        const autoConfirmDate = new Date();
+        autoConfirmDate.setDate(autoConfirmDate.getDate() + formData.auto_confirm_days);
+        submitData.auto_confirm_date = autoConfirmDate.toISOString().split('T')[0];
+        submitData.original_amount = formData.betrag;
+        submitData.pending_amount = formData.betrag;
+      }
+      
+      await onSave(submitData);
+    };
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;

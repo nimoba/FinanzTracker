@@ -14,11 +14,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // First, get the current transaction details
+    // Get current transaction
     const { rows: transactions } = await sql`
-      SELECT id, betrag, status, pending_amount, cancelled_amount, original_amount, beschreibung
-      FROM transaktionen 
-      WHERE id = ${id as string}
+      SELECT * FROM transaktionen WHERE id = ${id as string}
     `;
 
     if (transactions.length === 0) {
@@ -51,45 +49,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       newStatus = 'cancelled';
     }
 
-    // Update the transaction
+    // Update transaction
     await sql`
       UPDATE transaktionen 
       SET 
         cancelled_amount = ${newCancelledAmount},
         pending_amount = ${newPendingAmount},
         status = ${newStatus},
-        betrag = ${newPendingAmount} -- Update the main amount to reflect remaining pending
+        betrag = ${newPendingAmount}
       WHERE id = ${id as string}
     `;
 
-    // Record the action in transaction_status_history
+    // Record in history
     await sql`
       INSERT INTO transaction_status_history (transaction_id, status, amount, note)
       VALUES (${id as string}, 'partial_cancel', ${parseFloat(cancelAmount)}, ${note || ''})
     `;
 
-    // If fully cancelled, also record that
-    if (newStatus === 'cancelled') {
-      await sql`
-        INSERT INTO transaction_status_history (transaction_id, status, amount, note)
-        VALUES (${id as string}, 'cancelled', ${newPendingAmount}, 'Fully cancelled through partial cancellations')
-      `;
-    }
-
-    // Get updated transaction
-    const { rows: updatedTransactions } = await sql`
-      SELECT * FROM transaktionen WHERE id = ${id as string}
-    `;
-
     res.status(200).json({
       success: true,
       message: `Successfully cancelled ${cancelAmount}€ from transaction`,
-      transaction: updatedTransactions[0],
       details: {
         cancelledAmount: newCancelledAmount,
         remainingAmount: newPendingAmount,
-        newStatus,
-        fullyCompleted: newStatus === 'cancelled'
+        newStatus
       }
     });
 

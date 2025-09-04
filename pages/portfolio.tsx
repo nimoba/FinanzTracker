@@ -70,14 +70,11 @@ export default function PortfolioPage() {
     setSyncing(true);
     try {
       const response = await fetch('/api/portfolio/sync-prices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        method: 'POST'
       });
 
       if (response.ok) {
-        const result = await response.json();
-        console.log('Price sync result:', result);
-        await loadData(); // Reload data to show updated prices
+        await loadData();
       }
     } catch (error) {
       console.error('Error syncing prices:', error);
@@ -97,10 +94,8 @@ export default function PortfolioPage() {
     return `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
   };
 
-  const totalPortfolioValue = portfolios.reduce((sum, p) => sum + parseFloat(p.total_value.toString()), 0);
-  const totalPortfolioCost = portfolios.reduce((sum, p) => sum + parseFloat(p.total_cost.toString()), 0);
-  const totalUnrealizedPnL = totalPortfolioValue - totalPortfolioCost;
-  const totalUnrealizedPercent = totalPortfolioCost > 0 ? (totalUnrealizedPnL / totalPortfolioCost) * 100 : 0;
+  const totalPortfolioValue = portfolios.reduce((sum, p) => sum + p.total_value, 0);
+  const totalUnrealizedPnL = portfolios.reduce((sum, p) => sum + p.unrealized_pnl, 0);
 
   const containerStyle: React.CSSProperties = {
     padding: "12px",
@@ -169,161 +164,81 @@ export default function PortfolioPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <div>
             <div style={{ fontSize: 12, color: '#999' }}>Gesamtwert</div>
-            <div style={{ fontSize: 20, fontWeight: 'bold' }}>
+            <div style={{ fontSize: 24, fontWeight: 'bold' }}>
               {formatCurrency(totalPortfolioValue)}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: '#999' }}>Investiert</div>
-            <div style={{ fontSize: 16 }}>{formatCurrency(totalPortfolioCost)}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#999' }}>Gewinn/Verlust</div>
+            <div style={{ fontSize: 12, color: '#999' }}>Unrealisierter Gewinn/Verlust</div>
             <div style={{ 
-              fontSize: 16, 
+              fontSize: 20, 
               color: totalUnrealizedPnL >= 0 ? '#22c55e' : '#f44336',
               fontWeight: 'bold'
             }}>
-              {formatCurrency(totalUnrealizedPnL)} ({formatPercent(totalUnrealizedPercent)})
+              {formatCurrency(totalUnrealizedPnL)}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: '#999' }}>Positionen</div>
-            <div style={{ fontSize: 16 }}>{holdings.length}</div>
+            <div style={{ fontSize: 12, color: '#999' }}>Anzahl Positionen</div>
+            <div style={{ fontSize: 20 }}>{holdings.length}</div>
           </div>
         </div>
       </div>
 
-      {/* Portfolios List */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, margin: 0 }}>Portfolios</h2>
-          <button
-            onClick={() => setShowAddPortfolio(true)}
-            style={buttonStyle}
-          >
-            + Portfolio hinzufügen
-          </button>
-        </div>
-
-        {portfolios.map((portfolio) => (
-          <div key={portfolio.id} style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: 16 }}>{portfolio.name}</h3>
-                {portfolio.description && (
-                  <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#999' }}>
-                    {portfolio.description}
-                  </p>
-                )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#999' }}>Wert</div>
-                    <div style={{ fontSize: 14, fontWeight: 'bold' }}>
-                      {formatCurrency(portfolio.total_value)}
-                    </div>
+      {/* Holdings List */}
+      {holdings.length > 0 && (
+        <div>
+          <h2 style={{ fontSize: 18, marginBottom: 16 }}>Positionen</h2>
+          <div style={cardStyle}>
+            {holdings.map((holding) => (
+              <div key={holding.id} style={{ 
+                borderBottom: '1px solid #333', 
+                padding: '12px 0',
+                display: 'flex',
+                justifyContent: 'space-between'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 'bold' }}>
+                    {holding.symbol} {holding.name && `- ${holding.name}`}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#999' }}>P&L</div>
-                    <div style={{ 
-                      fontSize: 14, 
-                      color: portfolio.unrealized_pnl >= 0 ? '#22c55e' : '#f44336',
-                      fontWeight: 'bold'
-                    }}>
-                      {formatCurrency(portfolio.unrealized_pnl)}
-                    </div>
+                  <div style={{ fontSize: 12, color: '#999' }}>
+                    {holding.total_quantity} × {formatCurrency(holding.avg_purchase_price)}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#999' }}>Positionen</div>
-                    <div style={{ fontSize: 14 }}>{portfolio.holdings_count}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 'bold' }}>
+                    {formatCurrency(holding.current_value)}
+                  </div>
+                  <div style={{ 
+                    fontSize: 12, 
+                    color: holding.unrealized_pnl >= 0 ? '#22c55e' : '#f44336'
+                  }}>
+                    {formatPercent(holding.unrealized_pnl_percent)}
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => router.push(`/portfolio/${portfolio.id}`)}
-                style={{
-                  ...buttonStyle,
-                  backgroundColor: '#333',
-                  fontSize: 12,
-                  padding: '6px 12px'
-                }}
-              >
-                Details →
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {portfolios.length === 0 && (
-          <div style={cardStyle}>
-            <div style={{ textAlign: 'center', padding: 20, color: '#999' }}>
-              Noch keine Portfolios vorhanden
-              <br />
-              <button
-                onClick={() => setShowAddPortfolio(true)}
-                style={{ ...buttonStyle, marginTop: 12 }}
-              >
-                Erstes Portfolio erstellen
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Quick Holdings Overview */}
-      {holdings.length > 0 && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, margin: 0 }}>Alle Positionen</h2>
-            <button
-              onClick={() => setShowAddHolding(true)}
-              style={buttonStyle}
-            >
-              + Position hinzufügen
-            </button>
-          </div>
-
-          <div style={cardStyle}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
-              {holdings.slice(0, 5).map((holding) => (
-                <div key={holding.id} style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '8px 0',
-                  borderBottom: '1px solid #333'
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold', fontSize: 14 }}>
-                      {holding.symbol} {holding.name && `• ${holding.name}`}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#999' }}>
-                      {holding.total_quantity} × {formatCurrency(holding.current_price)}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 14, fontWeight: 'bold' }}>
-                      {formatCurrency(holding.current_value)}
-                    </div>
-                    <div style={{ 
-                      fontSize: 11, 
-                      color: holding.unrealized_pnl >= 0 ? '#22c55e' : '#f44336'
-                    }}>
-                      {formatPercent(holding.unrealized_pnl_percent)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {holdings.length > 5 && (
-                <div style={{ textAlign: 'center', padding: 8, color: '#999', fontSize: 12 }}>
-                  ... und {holdings.length - 5} weitere Positionen
-                </div>
-              )}
-            </div>
+            ))}
           </div>
         </div>
       )}
+
+      {/* Add buttons */}
+      <button
+        onClick={() => setShowAddHolding(true)}
+        style={{
+          ...buttonStyle,
+          position: 'fixed',
+          bottom: 100,
+          right: 20,
+          width: 56,
+          height: 56,
+          borderRadius: '50%',
+          fontSize: 24,
+          padding: 0
+        }}
+      >
+        +
+      </button>
 
       <FloatingTabBar />
     </div>

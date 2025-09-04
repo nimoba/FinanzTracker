@@ -4,7 +4,6 @@ interface Transaction {
   id: number;
   beschreibung: string;
   betrag: number;
-  status?: 'confirmed' | 'pending' | 'cancelled';
   pending_amount?: number;
   original_amount?: number;
   cancelled_amount?: number;
