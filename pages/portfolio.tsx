@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import FloatingTabBar from '@/components/FloatingTabBar';
+import AddHoldingForm from '@/components/AddHoldingForm';
+
 
 interface Portfolio {
   id: number;
@@ -63,6 +65,28 @@ export default function PortfolioPage() {
       console.error('Error loading portfolio data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddHolding = async (holdingData: any) => {
+    try {
+      const response = await fetch('/api/portfolio/holdings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(holdingData),
+      });
+
+      if (response.ok) {
+        setShowAddHolding(false);
+        await loadData(); // Reload to show new holding
+        alert('Position erfolgreich hinzugefügt!');
+      } else {
+        const error = await response.json();
+        alert(`Fehler: ${error.error || 'Unbekannter Fehler'}`);
+      }
+    } catch (error) {
+      console.error('Error adding holding:', error);
+      alert('Fehler beim Hinzufügen der Position');
     }
   };
 
@@ -241,6 +265,14 @@ export default function PortfolioPage() {
       </button>
 
       <FloatingTabBar />
+      {showAddHolding && (
+        <AddHoldingForm
+          portfolioId={portfolios[0]?.id}
+          onSave={handleAddHolding}
+          onCancel={() => setShowAddHolding(false)}
+          isLoading={false}
+        />
+      )}
     </div>
   );
 }
